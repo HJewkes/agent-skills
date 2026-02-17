@@ -11,13 +11,19 @@
       "name": "hjewkes-skills",
       "source": "./",
       "description": "Curated agent skills for software development workflows",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": {
         "name": "Henry Jewkes"
       },
       "repository": "https://github.com/HJewkes/agent-skills",
       "license": "MIT",
-      "keywords": ["agent-skills", "claude-code", "skills", "development", "workflow"]
+      "keywords": [
+        "agent-skills",
+        "claude-code",
+        "skills",
+        "development",
+        "workflow"
+      ]
     }
   ]
 }
