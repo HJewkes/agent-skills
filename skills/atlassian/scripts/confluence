@@ -1,0 +1,478 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# --- Dependency checks ---
+
+for cmd in curl jq; do
+  command -v "$cmd" &>/dev/null || { echo "Required command not found: $cmd" >&2; exit 1; }
+done
+
+# --- Auth setup (deferred until after help checks) ---
+
+setup_auth() {
+  local env_file="${HOME}/.atlassian-env"
+  if [[ ! -f "$env_file" ]]; then
+    echo "Missing ${env_file}. Create it with:" >&2
+    echo "  ATLASSIAN_DOMAIN=yoursite" >&2
+    echo "  ATLASSIAN_EMAIL=you@example.com" >&2
+    echo "  ATLASSIAN_API_TOKEN=your-api-token" >&2
+    exit 1
+  fi
+
+  # shellcheck source=/dev/null
+  source "$env_file"
+
+  for var in ATLASSIAN_DOMAIN ATLASSIAN_EMAIL ATLASSIAN_API_TOKEN; do
+    if [[ -z "${!var:-}" ]]; then
+      echo "Missing ${var} in ${env_file}" >&2
+      exit 1
+    fi
+  done
+
+  BASE_URL="https://${ATLASSIAN_DOMAIN}.atlassian.net"
+}
+
+# --- Helpers ---
+
+api() {
+  local method="$1" path="$2"
+  shift 2
+  curl -s -u "${ATLASSIAN_EMAIL}:${ATLASSIAN_API_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -H "Accept: application/json" \
+    -X "$method" \
+    "$@" \
+    "${BASE_URL}${path}"
+}
+
+die() { echo "Error: $*" >&2; exit 1; }
+
+# Paginate v2 endpoints. Aggregates .results arrays.
+# Usage: paginate_v2 "/wiki/api/v2/endpoint?limit=50"
+paginate_v2() {
+  local url="$1"
+  local all_results="[]"
+  local next_path="$url"
+
+  while [[ -n "$next_path" ]]; do
+    echo "Fetching: ${next_path}" >&2
+    local response
+    response=$(api GET "$next_path")
+
+    local page_results
+    page_results=$(echo "$response" | jq -c '.results // []')
+    all_results=$(echo "$all_results" "$page_results" | jq -s '.[0] + .[1]')
+
+    next_path=$(echo "$response" | jq -r '._links.next // empty')
+  done
+
+  echo "$all_results"
+}
+
+# Paginate v1 search. Follows _links.next which is a full relative URL.
+# Usage: paginate_v1_search "/wiki/rest/api/search?cql=...&limit=25"
+paginate_v1_search() {
+  local url="$1"
+  local all_results="[]"
+  local next_path="$url"
+
+  while [[ -n "$next_path" ]]; do
+    echo "Fetching: ${next_path}" >&2
+    local response
+    response=$(api GET "$next_path")
+
+    local page_results
+    page_results=$(echo "$response" | jq -c '.results // []')
+    all_results=$(echo "$all_results" "$page_results" | jq -s '.[0] + .[1]')
+
+    next_path=$(echo "$response" | jq -r '._links.next // empty')
+  done
+
+  echo "$all_results"
+}
+
+# --- Usage ---
+
+usage() {
+  cat <<'EOF'
+Usage: confluence <subcommand> [options]
+
+Thin wrapper around Confluence Cloud REST API.
+
+Subcommands:
+  search   Search Confluence with CQL
+  get      Get a page by ID
+  create   Create a new page
+  update   Update an existing page
+  spaces   List spaces
+  comments Get footer comments on a page
+
+Options:
+  --help   Show this help message
+
+Environment:
+  Reads ~/.atlassian-env for ATLASSIAN_DOMAIN, ATLASSIAN_EMAIL, ATLASSIAN_API_TOKEN
+
+Exit codes:
+  0  Success
+  1  Failure
+  2  Partial / warning
+EOF
+}
+
+usage_search() {
+  cat <<'EOF'
+Usage: confluence search "CQL query" [--limit N]
+
+Search Confluence using CQL (Confluence Query Language).
+
+Arguments:
+  CQL query   The CQL search query (required)
+
+Options:
+  --limit N   Results per page (default: 25)
+  --help      Show this help message
+
+Output: JSON array of search results
+
+Example:
+  confluence search "type=page AND space=DEV AND title~\"roadmap\""
+EOF
+}
+
+usage_get() {
+  cat <<'EOF'
+Usage: confluence get PAGE_ID [--format storage|view]
+
+Get a Confluence page by ID.
+
+Arguments:
+  PAGE_ID    Numeric page ID (required)
+
+Options:
+  --format   Body format: storage or view (default: storage)
+  --help     Show this help message
+
+Output: Full page JSON including body
+EOF
+}
+
+usage_create() {
+  cat <<'EOF'
+Usage: confluence create --space KEY --title "..." [--body "..." | --body-file PATH] [--parent PAGE_ID]
+
+Create a new Confluence page.
+
+Options:
+  --space KEY        Space key (required)
+  --title "..."      Page title (required)
+  --body "..."       Page body in storage format
+  --body-file PATH   Read body from file instead
+  --parent PAGE_ID   Parent page ID for nesting
+  --help             Show this help message
+
+Output: Created page JSON
+EOF
+}
+
+usage_update() {
+  cat <<'EOF'
+Usage: confluence update PAGE_ID [--body "..." | --body-file PATH] [--title "..."]
+
+Update an existing Confluence page. Automatically handles version increment.
+
+Arguments:
+  PAGE_ID          Numeric page ID (required)
+
+Options:
+  --body "..."     New body in storage format
+  --body-file PATH Read body from file instead
+  --title "..."    New title
+  --help           Show this help message
+
+Output: Updated page JSON
+EOF
+}
+
+usage_spaces() {
+  cat <<'EOF'
+Usage: confluence spaces [--limit N]
+
+List Confluence spaces.
+
+Options:
+  --limit N   Results per page (default: 50)
+  --help      Show this help message
+
+Output: JSON array of spaces
+EOF
+}
+
+usage_comments() {
+  cat <<'EOF'
+Usage: confluence comments PAGE_ID
+
+Get footer comments on a Confluence page.
+
+Arguments:
+  PAGE_ID   Numeric page ID (required)
+
+Options:
+  --help    Show this help message
+
+Output: JSON array of comments
+EOF
+}
+
+# --- Subcommands ---
+
+cmd_search() {
+  local cql="" limit=25
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --limit) limit="$2"; shift 2 ;;
+      --help) usage_search; exit 0 ;;
+      -*) die "Unknown option: $1" ;;
+      *)
+        if [[ -z "$cql" ]]; then
+          cql="$1"; shift
+        else
+          die "Unexpected argument: $1"
+        fi
+        ;;
+    esac
+  done
+
+  [[ -n "$cql" ]] || { usage_search >&2; die "CQL query is required"; }
+
+  local encoded_cql
+  encoded_cql=$(printf '%s' "$cql" | jq -sRr @uri)
+
+  paginate_v1_search "/wiki/rest/api/search?cql=${encoded_cql}&limit=${limit}"
+}
+
+cmd_get() {
+  local page_id="" format="storage"
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --format) format="$2"; shift 2 ;;
+      --help) usage_get; exit 0 ;;
+      -*) die "Unknown option: $1" ;;
+      *)
+        if [[ -z "$page_id" ]]; then
+          page_id="$1"; shift
+        else
+          die "Unexpected argument: $1"
+        fi
+        ;;
+    esac
+  done
+
+  [[ -n "$page_id" ]] || { usage_get >&2; die "PAGE_ID is required"; }
+
+  api GET "/wiki/api/v2/pages/${page_id}?body-format=${format}"
+}
+
+cmd_create() {
+  local space_key="" title="" body="" body_file="" parent_id=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --space) space_key="$2"; shift 2 ;;
+      --title) title="$2"; shift 2 ;;
+      --body) body="$2"; shift 2 ;;
+      --body-file) body_file="$2"; shift 2 ;;
+      --parent) parent_id="$2"; shift 2 ;;
+      --help) usage_create; exit 0 ;;
+      -*) die "Unknown option: $1" ;;
+      *) die "Unexpected argument: $1" ;;
+    esac
+  done
+
+  [[ -n "$space_key" ]] || { usage_create >&2; die "--space is required"; }
+  [[ -n "$title" ]] || { usage_create >&2; die "--title is required"; }
+
+  if [[ -n "$body_file" ]]; then
+    [[ -f "$body_file" ]] || die "Body file not found: $body_file"
+    body=$(cat "$body_file")
+  fi
+
+  # Resolve space key to numeric space ID
+  echo "Resolving space key: ${space_key}" >&2
+  local space_response
+  space_response=$(api GET "/wiki/api/v2/spaces?keys=${space_key}")
+
+  local space_id
+  space_id=$(echo "$space_response" | jq -r '.results[0].id // empty')
+  [[ -n "$space_id" ]] || die "Space not found: ${space_key}"
+
+  echo "Resolved space ID: ${space_id}" >&2
+
+  # Build request payload
+  local payload
+  payload=$(jq -n \
+    --arg spaceId "$space_id" \
+    --arg title "$title" \
+    --arg body "${body:-}" \
+    --arg parentId "${parent_id:-}" \
+    '{
+      spaceId: $spaceId,
+      status: "current",
+      title: $title,
+      body: {
+        representation: "storage",
+        value: $body
+      }
+    } + (if $parentId != "" then { parentId: $parentId } else {} end)')
+
+  api POST "/wiki/api/v2/pages" -d "$payload"
+}
+
+cmd_update() {
+  local page_id="" body="" body_file="" title=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --body) body="$2"; shift 2 ;;
+      --body-file) body_file="$2"; shift 2 ;;
+      --title) title="$2"; shift 2 ;;
+      --help) usage_update; exit 0 ;;
+      -*) die "Unknown option: $1" ;;
+      *)
+        if [[ -z "$page_id" ]]; then
+          page_id="$1"; shift
+        else
+          die "Unexpected argument: $1"
+        fi
+        ;;
+    esac
+  done
+
+  [[ -n "$page_id" ]] || { usage_update >&2; die "PAGE_ID is required"; }
+
+  if [[ -n "$body_file" ]]; then
+    [[ -f "$body_file" ]] || die "Body file not found: $body_file"
+    body=$(cat "$body_file")
+  fi
+
+  # Read current version
+  echo "Reading current page version..." >&2
+  local current
+  current=$(api GET "/wiki/api/v2/pages/${page_id}?include-version=true")
+
+  local current_version current_title
+  current_version=$(echo "$current" | jq -r '.version.number // empty')
+  current_title=$(echo "$current" | jq -r '.title // empty')
+
+  [[ -n "$current_version" ]] || die "Could not read version for page ${page_id}"
+
+  local new_version=$((current_version + 1))
+  echo "Updating from version ${current_version} to ${new_version}" >&2
+
+  # Use current title if not provided
+  [[ -n "$title" ]] || title="$current_title"
+
+  # Build request payload
+  local payload
+  payload=$(jq -n \
+    --arg id "$page_id" \
+    --arg title "$title" \
+    --argjson version "$new_version" \
+    --arg body "${body:-}" \
+    --argjson hasBody "$([ -n "${body:-}" ] && echo true || echo false)" \
+    '{
+      id: $id,
+      status: "current",
+      title: $title,
+      version: { number: $version }
+    } + (if $hasBody then {
+      body: {
+        representation: "storage",
+        value: $body
+      }
+    } else {} end)')
+
+  api PUT "/wiki/api/v2/pages/${page_id}" -d "$payload"
+}
+
+cmd_spaces() {
+  local limit=50
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --limit) limit="$2"; shift 2 ;;
+      --help) usage_spaces; exit 0 ;;
+      -*) die "Unknown option: $1" ;;
+      *) die "Unexpected argument: $1" ;;
+    esac
+  done
+
+  paginate_v2 "/wiki/api/v2/spaces?limit=${limit}"
+}
+
+cmd_comments() {
+  local page_id=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --help) usage_comments; exit 0 ;;
+      -*) die "Unknown option: $1" ;;
+      *)
+        if [[ -z "$page_id" ]]; then
+          page_id="$1"; shift
+        else
+          die "Unexpected argument: $1"
+        fi
+        ;;
+    esac
+  done
+
+  [[ -n "$page_id" ]] || { usage_comments >&2; die "PAGE_ID is required"; }
+
+  paginate_v2 "/wiki/api/v2/pages/${page_id}/footer-comments?body-format=storage"
+}
+
+# --- Main dispatch ---
+
+if [[ $# -eq 0 ]]; then
+  usage >&2
+  exit 1
+fi
+
+# Handle top-level help before auth
+if [[ "$1" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+# Handle subcommand help before auth
+if [[ $# -ge 2 && "$2" == "--help" ]]; then
+  case "$1" in
+    search)   usage_search; exit 0 ;;
+    get)      usage_get; exit 0 ;;
+    create)   usage_create; exit 0 ;;
+    update)   usage_update; exit 0 ;;
+    spaces)   usage_spaces; exit 0 ;;
+    comments) usage_comments; exit 0 ;;
+  esac
+fi
+
+# Validate subcommand before auth
+case "$1" in
+  search|get|create|update|spaces|comments) ;;
+  *) echo "Unknown subcommand: $1" >&2; usage >&2; exit 1 ;;
+esac
+
+# Auth required for all operations beyond help
+setup_auth
+
+case "$1" in
+  search)   shift; cmd_search "$@" ;;
+  get)      shift; cmd_get "$@" ;;
+  create)   shift; cmd_create "$@" ;;
+  update)   shift; cmd_update "$@" ;;
+  spaces)   shift; cmd_spaces "$@" ;;
+  comments) shift; cmd_comments "$@" ;;
+esac
