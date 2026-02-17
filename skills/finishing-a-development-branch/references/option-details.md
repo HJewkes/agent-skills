@@ -13,7 +13,7 @@ git pull
 git merge <feature-branch>
 
 # Verify tests on merged result
-~/.agents/bin/run-tests
+scripts/run-tests
 
 # If tests pass
 git branch -d <feature-branch>

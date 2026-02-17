@@ -17,7 +17,7 @@ Guide completion of development work by presenting clear options and handling ch
 
 ### Step 1: Verify Tests
 
-Run project's test suite using `~/.agents/bin/run-tests` for auto-detection. **If tests fail:** show failures, stop — cannot proceed until tests pass. **If tests pass:** continue.
+Run project's test suite using `scripts/run-tests` for auto-detection. **If tests fail:** show failures, stop — cannot proceed until tests pass. **If tests pass:** continue.
 
 ### Step 2: Determine Base Branch
 

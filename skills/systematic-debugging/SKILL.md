@@ -65,7 +65,7 @@ If you catch yourself thinking:
 - **`condition-based-waiting.md`** — Replace arbitrary timeouts with condition polling
 
 **Related skills:**
-- **superpowers:test-driven-development** — For creating failing test case (Phase 4)
-- **superpowers:verification-before-completion** — Verify fix worked before claiming success
+- **test-driven-development** — For creating failing test case (Phase 4)
+- **verification-before-completion** — Verify fix worked before claiming success
 
 For user signals, rationalizations table, and "no root cause" guidance, see [references/debugging-signals.md](references/debugging-signals.md).

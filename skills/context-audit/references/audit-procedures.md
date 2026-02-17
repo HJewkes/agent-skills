@@ -2,7 +2,7 @@
 
 ## Static Inventory Procedure
 
-> **Automation:** `~/.agents/bin/audit-context` automates Steps 1-4 below. Use `--json` for structured output. The manual steps remain here as reference.
+> **Automation:** `scripts/audit-context` automates Steps 1-4 below. Use `--json` for structured output. The manual steps remain here as reference.
 
 ### Step 1: Discover Skills
 

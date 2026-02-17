@@ -21,7 +21,7 @@ Analyzes what's consuming your context window and recommends optimizations. Thre
 
 ### 1. Static Inventory
 
-Run `~/.agents/bin/audit-context` to automate the static inventory. Supports `--json` for structured output, `--flagged` for problems only, `--top N` for largest items.
+Run `scripts/audit-context` to automate the static inventory. Supports `--json` for structured output, `--flagged` for problems only, `--top N` for largest items.
 
 The script scans all context-contributing sources:
 - Skills (SKILL.md, rules/, references/)

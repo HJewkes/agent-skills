@@ -7,7 +7,7 @@ Use this template when dispatching a code quality reviewer subagent.
 **Only dispatch after spec compliance review passes.**
 
 ```
-Task tool (superpowers:code-reviewer):
+Task tool (code-review skill):
   Use template at code-review/references/deep-reviewer.md
 
   WHAT_WAS_IMPLEMENTED: [from implementer's report]

@@ -27,7 +27,7 @@ If you haven't run the verification command in this message, you cannot claim it
 BEFORE claiming any status or expressing satisfaction:
 
 1. IDENTIFY: What command proves this claim?
-   Tip: Use `~/.agents/bin/run-tests` for auto-detected test execution.
+   Tip: Use `scripts/run-tests` for auto-detected test execution.
 2. RUN: Execute the FULL command (fresh, complete)
 3. READ: Full output, check exit code, count failures
 4. VERIFY: Does output confirm the claim?

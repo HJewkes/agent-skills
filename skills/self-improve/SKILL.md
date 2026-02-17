@@ -7,7 +7,7 @@ description: Use when a session produced reusable insights, when the user says "
 
 ## Overview
 
-Session learning loop that captures reusable knowledge and routes it to the right place: project memory, global CLAUDE.md, or a new skill. Builds on superpowers:writing-skills methodology for skill creation.
+Session learning loop that captures reusable knowledge and routes it to the right place: project memory, global CLAUDE.md, or a new skill. Builds on skills-management methodology for skill creation (see writing-skills reference).
 
 ## Process
 
@@ -33,7 +33,7 @@ Present all proposed changes grouped by destination. For each:
 **Never auto-apply changes.** Always get explicit approval.
 
 ### 4. Apply Approved Changes
-Write changes to the approved destinations. For new skills, note that full TDD testing (per superpowers:writing-skills) should happen in a dedicated session.
+Write changes to the approved destinations. For new skills, note that full TDD testing (per skills-management writing-skills reference) should happen in a dedicated session.
 
 ## Common Mistakes
 - **Defaulting to ~/CLAUDE.md** — most learnings belong in a more focused location (existing skill, project CLAUDE.md, or memory). ~/CLAUDE.md is the last resort, not the default.

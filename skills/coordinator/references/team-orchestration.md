@@ -15,7 +15,7 @@
 
 - Each agent gets explicit file ownership (which files it may modify)
 - Spawn prompt includes ALL context — agents don't inherit conversation
-- Follow the [dispatch prompt template](../../skill-conventions/references/dispatch-prompt-template.md) for prompt structure (Role, Context, Scope, Success Criteria, Return Format, Anti-patterns)
+- Follow the [dispatch prompt template](../../skills-management/references/dispatch-prompt-template.md) for prompt structure (Role, Context, Scope, Success Criteria, Return Format, Anti-patterns)
 - Model selection:
   | Tier | Model | Use For |
   |------|-------|---------|

@@ -37,7 +37,7 @@ Dispatch specialized review agents matched to the situation. Choose a mode or le
 
 ## How to Request
 
-1. Gather git context using `~/.agents/bin/review-prep` (auto-detects base branch, outputs BASE_SHA, HEAD_SHA, diff stats, changed files, commit log). Use `--json` for structured output.
+1. Gather git context using `scripts/review-prep` (auto-detects base branch, outputs BASE_SHA, HEAD_SHA, diff stats, changed files, commit log). Use `--json` for structured output.
 2. Read the reference file for your chosen agent(s)
 3. Spawn `general-purpose` Task agent with the prompt + review-prep output
 4. Act on feedback: fix Critical immediately, fix Important before proceeding

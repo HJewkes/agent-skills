@@ -45,7 +45,7 @@ Each agent gets: **specific scope** (one file/subsystem), **clear goal**, **cons
 
 **Model selection:** Use Opus for implementation agents, Sonnet for review/analysis agents, Haiku for simple validation or formatting tasks.
 
-Use the [dispatch prompt template](../skill-conventions/references/dispatch-prompt-template.md) for the canonical 6-section prompt structure.
+Use the [dispatch prompt template](../skills-management/references/dispatch-prompt-template.md) for the canonical 6-section prompt structure.
 
 ### 3. Dispatch in Parallel
 ```typescript

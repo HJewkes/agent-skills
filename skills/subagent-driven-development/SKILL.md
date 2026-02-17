@@ -101,7 +101,7 @@ Re-read `manifest.json` from disk to recover task state if context has been comp
 
 **Never:** skip reviews, proceed with unfixed issues, dispatch parallel implementers, paste full briefing text inline instead of pointing to briefing file, skip reading the manifest at wave boundaries, start code quality review before spec compliance passes.
 
-- Dispatch prompts missing key sections (see skill-conventions/references/dispatch-prompt-template.md for the canonical 6-section structure)
+- Dispatch prompts missing key sections (see skills-management/references/dispatch-prompt-template.md for the canonical 6-section structure)
 
 **If subagent asks questions:** Answer before proceeding.
 **If reviewer finds issues:** Implementer fixes, re-review until approved.

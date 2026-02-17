@@ -15,7 +15,7 @@ Git worktrees create isolated workspaces sharing the same repository, allowing w
 
 ## Worktree Creation
 
-Use `~/.agents/bin/worktree-setup <branch-name>` to handle directory selection, safety verification, dependency installation, and baseline testing in one step.
+Use `scripts/worktree-setup <branch-name>` to handle directory selection, safety verification, dependency installation, and baseline testing in one step.
 
 The script auto-detects the worktree directory (`.worktrees/` > `worktrees/` > CLAUDE.md preference), verifies gitignore, installs deps, and runs baseline tests. If no directory is auto-detected, it exits with a suggestion — the skill then asks the user and re-runs with `--dir <path>`.
 

@@ -5,7 +5,7 @@
 Use the `worktree-setup` script which handles steps 1-4 automatically:
 
 ```bash
-~/.agents/bin/worktree-setup <branch-name>
+scripts/worktree-setup <branch-name>
 # Options: --dir <path>, --no-install, --no-test
 # Exit: 0 = ready, 1 = fatal, 2 = created but tests fail
 # Outputs absolute worktree path to stdout

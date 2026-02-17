@@ -1,3 +1,8 @@
+---
+name: managing-github-issues
+description: Use when starting a session to find work, creating/triaging issues, or completing work and updating issue status
+---
+
 # Managing GitHub Issues
 
 Use this skill when starting a session to find work, creating/triaging issues, or completing work and updating issue status.

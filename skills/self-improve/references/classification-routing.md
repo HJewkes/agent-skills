@@ -19,7 +19,7 @@ Route each learning to the **most focused destination possible.** Work down this
 For each learning, draft the specific change:
 - **Project CLAUDE.md**: Specific section and content to add/modify
 - **Global CLAUDE.md**: New rule or refinement with reasoning
-- **New skill**: Follow superpowers:writing-skills format (YAML frontmatter, sections)
+- **New skill**: Follow skills-management writing-skills reference format (YAML frontmatter, sections)
 - **Skill update**: Show diff of proposed change
 - **Auto memory**: Key-value style notes for MEMORY.md
 

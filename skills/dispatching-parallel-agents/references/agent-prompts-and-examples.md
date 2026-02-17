@@ -2,7 +2,7 @@
 
 ## Agent Prompt Structure
 
-Follow the [dispatch prompt template](../../skill-conventions/references/dispatch-prompt-template.md) for the canonical 6-section structure. The key qualities below complement that template.
+Follow the [dispatch prompt template](../../skills-management/references/dispatch-prompt-template.md) for the canonical 6-section structure. The key qualities below complement that template.
 
 Good agent prompts are:
 1. **Focused** — One clear problem domain
