@@ -8,5 +8,11 @@
   },
   "repository": "https://github.com/HJewkes/agent-skills",
   "license": "MIT",
-  "keywords": ["agent-skills", "claude-code", "skills", "development", "workflow"]
+  "keywords": [
+    "agent-skills",
+    "claude-code",
+    "skills",
+    "development",
+    "workflow"
+  ]
 }
