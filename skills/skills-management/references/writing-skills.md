@@ -1,21 +1,14 @@
----
-name: writing-skills
-description: Use when creating new skills, editing existing skills, or verifying skills work before deployment
----
-
 # Writing Skills
 
 ## Overview
 
 **Writing skills IS Test-Driven Development applied to process documentation.**
 
-**Skills are managed by chezmoi via `skill-manager`.** To scaffold a new skill: `skill-manager create <name>`. It handles chezmoi source paths, symlinks, and convention enforcement automatically. See `skill-conventions` for the full directory layout.
+**Skills are managed via the skill-manager script.** To scaffold a new skill: `scripts/skill-manager create <name>`. It handles directory creation, symlinks, and convention enforcement automatically. See the conventions reference for the full directory layout.
 
 You write test cases (pressure scenarios with subagents), watch them fail (baseline behavior), write the skill (documentation), watch tests pass (agents comply), and refactor (close loopholes).
 
 **Core principle:** If you didn't watch an agent fail without the skill, you don't know if the skill teaches the right thing.
-
-**REQUIRED BACKGROUND:** You MUST understand superpowers:test-driven-development before using this skill.
 
 **Official guidance:** For Anthropic's official skill authoring best practices, see anthropic-best-practices.md.
 
@@ -54,7 +47,7 @@ This applies to NEW skills AND EDITS. Write skill before testing? Delete it. Sta
 2. **GREEN:** Write minimal skill addressing those specific failures. Verify agents now comply.
 3. **REFACTOR:** Agent found new rationalization? Add counter. Re-test until bulletproof.
 
-**Testing methodology:** See @testing-skills-with-subagents.md for pressure scenarios, pressure types, and plugging holes.
+**Testing methodology:** See references/testing-methodology.md for pressure scenarios, pressure types, and plugging holes.
 
 ## The Bottom Line
 

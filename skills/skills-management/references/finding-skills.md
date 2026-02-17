@@ -1,8 +1,3 @@
----
-name: finding-skills
-description: Use when needing new capabilities before creating skills from scratch — when a task would benefit from an existing marketplace skill, when the user asks to find or install a skill, or when you identify a gap that a community skill might fill
----
-
 # Finding Skills
 
 Search skill marketplaces, vet quality and security, compare candidates, then install, combine, or write custom. Never install unvetted skills.
@@ -51,9 +46,9 @@ Before installing ANY skill:
 When multiple candidates pass vetting, compare them across: trigger coverage, workflow completeness, allowed-tools scope, and prompt quality.
 
 **Decision tree:**
-- **One clear winner** → Install it (Step 5)
-- **Complementary strengths** (each excels at different features) → Combine (Step 6)
-- **None adequate** → Write custom (Step 7)
+- **One clear winner** -> Install it (Step 5)
+- **Complementary strengths** (each excels at different features) -> Combine (Step 6)
+- **None adequate** -> Write custom (Step 7)
 
 Present comparison and recommendation to user for approval.
 
@@ -63,9 +58,9 @@ Present comparison and recommendation to user for approval.
 # From npm marketplace
 npx skills add <package> -g -y
 
-# From GitHub (handles chezmoi source, symlinks, and skill-lock automatically)
-skill-manager install <owner/repo>
-skill-manager install <owner/repo> skills/<skill-name>  # specific skill path
+# From GitHub
+scripts/skill-manager install <owner/repo>
+scripts/skill-manager install <owner/repo> skills/<skill-name>  # specific skill path
 ```
 
 ### Step 6: Combine
@@ -74,13 +69,13 @@ When candidates have complementary strengths, build a unified skill:
 
 1. Pick the best approach from each candidate per feature area
 2. Resolve conflicts between approaches (prompts, permissions, workflow order)
-3. Build unified SKILL.md following writing-skills conventions
+3. Build unified SKILL.md following the writing-skills reference in this skill
 4. Attribute source skills in a comment at the top
-5. `skill-manager create <name>`, edit the SKILL.md, and verify triggers work
+5. `scripts/skill-manager create <name>`, edit the SKILL.md, and verify triggers work
 
 ### Step 7: Write Custom
 
-No skill passed vetting or met needs? Invoke **writing-skills** to create a custom skill via TDD methodology.
+No skill passed vetting or met needs? Use the writing-skills reference in this skill to create a custom skill via TDD methodology.
 
 ## Common Mistakes
 
