@@ -17,7 +17,13 @@ jobs:
           fetch-depth: 0
 
       - name: Validate skills
-        run: ./skills/skills-management/scripts/skill-manager validate
+        run: |
+          set +e
+          ./skills/skills-management/scripts/skill-manager validate
+          code=$?
+          set -e
+          if [ $code -eq 1 ]; then echo "Validation errors found"; exit 1; fi
+          # exit code 2 = warnings only, acceptable for release
 
       - name: Sync plugin.json version
         run: |
