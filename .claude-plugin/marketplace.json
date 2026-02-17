@@ -1,23 +1,23 @@
 {
-  "name": "hjewkes-skills",
+  "name": "hjewkes-agent-skills",
   "owner": {
-    "name": "Harry Jewkes"
+    "name": "Henry Jewkes"
   },
   "metadata": {
-    "description": "Curated Claude Code skills for software development workflows"
+    "description": "Curated agent skills for software development workflows"
   },
   "plugins": [
     {
       "name": "hjewkes-skills",
       "source": "./",
-      "description": "Curated Claude Code skills for software development workflows",
+      "description": "Curated agent skills for software development workflows",
       "version": "1.0.0",
       "author": {
-        "name": "Harry Jewkes"
+        "name": "Henry Jewkes"
       },
-      "repository": "https://github.com/HJewkes/claude-skills",
+      "repository": "https://github.com/HJewkes/agent-skills",
       "license": "MIT",
-      "keywords": ["claude-code", "skills", "development", "workflow"]
+      "keywords": ["agent-skills", "claude-code", "skills", "development", "workflow"]
     }
   ]
 }

@@ -1,23 +1,36 @@
-# claude-skills
+# agent-skills
 
-Curated Claude Code skills for software development workflows. 27 skills, 2 agents, and config examples — ready to install.
+Curated agent skills for software development workflows. 27 skills, 2 agents, and config examples — ready to install.
 
 ## Install
 
-### Claude Code (recommended)
+### All skills
 
 ```bash
-claude plugin install hjewkes-skills
-# or in a session: /plugin install hjewkes-skills
+npx skills add hjewkes/agent-skills --skill='*'
 ```
 
-### Cross-tool (Cursor, OpenCode, Codex, etc.)
+### Specific skills
 
 ```bash
-npx skills add hjewkes/claude-skills --skill='*'
+npx skills add hjewkes/agent-skills --skill='code-review'
+```
 
-# Install specific skill
-npx skills add hjewkes/claude-skills --skill='code-review'
+### Claude Code plugin (alternative)
+
+```bash
+# Add marketplace, then install
+claude plugin marketplace add HJewkes/agent-skills
+claude plugin install hjewkes-skills@hjewkes-agent-skills
+```
+
+Note: Plugin install namespaces skills as `/hjewkes-skills:skill-name`. The `npx skills add` method uses bare names.
+
+### Update
+
+```bash
+npx skills check
+npx skills update
 ```
 
 ## Skills Catalog
