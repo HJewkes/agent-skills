@@ -25,18 +25,20 @@ jobs:
           if [ $code -eq 1 ]; then echo "Validation errors found"; exit 1; fi
           # exit code 2 = warnings only, acceptable for release
 
-      - name: Sync plugin.json version
+      - name: Sync version in plugin.json and marketplace.json
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           jq --arg v "$VERSION" '.version = $v' .claude-plugin/plugin.json > tmp.json
           mv tmp.json .claude-plugin/plugin.json
+          jq --arg v "$VERSION" '.plugins[0].version = $v' .claude-plugin/marketplace.json > tmp.json
+          mv tmp.json .claude-plugin/marketplace.json
 
       - name: Commit version bump
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .claude-plugin/plugin.json
-          git diff --cached --quiet || git commit -m "Bump plugin version to ${GITHUB_REF_NAME#v}"
+          git add .claude-plugin/plugin.json .claude-plugin/marketplace.json
+          git diff --cached --quiet || git commit -m "chore: bump version to ${GITHUB_REF_NAME#v}"
           git push origin HEAD:main
 
       - name: Create GitHub Release
