@@ -1,0 +1,12 @@
+{
+  "name": "hjewkes-skills",
+  "version": "1.0.0",
+  "description": "Curated Claude Code skills for software development workflows",
+  "author": {
+    "name": "Harry Jewkes",
+    "url": "https://github.com/HJewkes"
+  },
+  "repository": "https://github.com/HJewkes/claude-skills",
+  "license": "MIT",
+  "keywords": ["claude-code", "skills", "development", "workflow"]
+}
