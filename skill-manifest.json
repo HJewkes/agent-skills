@@ -7,6 +7,10 @@
       "upstreamPath": "skills/agent-browser",
       "forkedAt": "2026-02-16"
     },
+    "atlassian": {
+      "type": "original",
+      "description": "Jira + Confluence integration via jira-cli and REST API"
+    },
     "brainstorming": {
       "type": "fork",
       "upstream": "obra/superpowers",
