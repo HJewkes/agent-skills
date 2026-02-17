@@ -1,0 +1,23 @@
+{
+  "name": "hjewkes-skills",
+  "owner": {
+    "name": "Harry Jewkes"
+  },
+  "metadata": {
+    "description": "Curated Claude Code skills for software development workflows"
+  },
+  "plugins": [
+    {
+      "name": "hjewkes-skills",
+      "source": "./",
+      "description": "Curated Claude Code skills for software development workflows",
+      "version": "1.0.0",
+      "author": {
+        "name": "Harry Jewkes"
+      },
+      "repository": "https://github.com/HJewkes/claude-skills",
+      "license": "MIT",
+      "keywords": ["claude-code", "skills", "development", "workflow"]
+    }
+  ]
+}
