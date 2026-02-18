@@ -1,0 +1,680 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TEMPLATE_DIR="$SCRIPT_DIR/../templates"
+
+# Color helpers
+if [[ -t 1 ]] && command -v tput &>/dev/null; then
+  RED=$(tput setaf 1)
+  GREEN=$(tput setaf 2)
+  YELLOW=$(tput setaf 3)
+  BOLD=$(tput bold)
+  RESET=$(tput sgr0)
+else
+  RED="" GREEN="" YELLOW="" BOLD="" RESET=""
+fi
+
+die() { echo "${RED}Error: $1${RESET}" >&2; exit 1; }
+pass() { echo "  ${GREEN}[PASS]${RESET} $1"; }
+warn() { echo "  ${YELLOW}[WARN]${RESET} $1"; }
+fail() { echo "  ${RED}[FAIL]${RESET} $1"; }
+
+usage() {
+  cat <<'EOF'
+Usage: repo-ci <command> [options]
+
+Commands:
+  audit    Audit repository CI health against standards
+  setup    Generate CI/CD workflow files from templates
+
+Options:
+  --help   Show this help message
+
+Run 'repo-ci <command> --help' for command-specific options.
+
+Exit codes:
+  0  Success (audit: all checks pass)
+  1  Error
+  2  Warnings (audit: gaps found, setup: unsupported stack)
+EOF
+}
+
+usage_audit() {
+  cat <<'EOF'
+Usage: repo-ci audit [options]
+
+Audit repository CI health against standards.
+
+Checks 6 areas:
+  - CI workflow existence and jobs
+  - Release workflow existence and jobs
+  - Formatter configuration
+  - Coverage configuration
+  - Branch protection rulesets
+  - Security scanning
+
+Options:
+  --json   Output results as JSON
+  --help   Show this help message
+EOF
+}
+
+usage_setup() {
+  cat <<'EOF'
+Usage: repo-ci setup [options]
+
+Generate CI/CD workflow files from templates.
+
+Options:
+  --dry-run          Print generated files to stdout without writing
+  --preset <stack>   Stack preset: node or python (default: auto-detect)
+  --help             Show this help message
+EOF
+}
+
+# --- Detection functions ---
+
+detect_stack() {
+  if [[ -f "package.json" ]]; then
+    echo "node"
+  elif [[ -f "pyproject.toml" ]] || [[ -f "setup.py" ]]; then
+    echo "python"
+  else
+    echo "unknown"
+  fi
+}
+
+detect_pkg_manager() {
+  if [[ -f "pnpm-lock.yaml" ]]; then
+    echo "pnpm"
+  elif [[ -f "package-lock.json" ]]; then
+    echo "npm"
+  else
+    echo "npm"
+  fi
+}
+
+detect_test_framework() {
+  local stack="$1"
+  if [[ "$stack" == "node" ]] && [[ -f "package.json" ]]; then
+    if grep -q '"vitest"' package.json 2>/dev/null; then
+      echo "vitest"
+      return
+    fi
+    if grep -q '"jest"' package.json 2>/dev/null; then
+      echo "jest"
+      return
+    fi
+  elif [[ "$stack" == "python" ]]; then
+    if [[ -f "pyproject.toml" ]] && grep -q 'pytest' pyproject.toml 2>/dev/null; then
+      echo "pytest"
+      return
+    fi
+  fi
+  echo "unknown"
+}
+
+# --- JSON helpers ---
+
+escape_json() {
+  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/	/\\t/g' | awk '{printf "%s\\n", $0}' | sed '$ s/\\n$//'
+}
+
+# --- Audit ---
+
+audit_repo() {
+  local json_output="$1"
+  local stack
+  stack=$(detect_stack)
+
+  local -a areas=()
+  local -a statuses=()
+  local -a details=()
+  local -a recommendations=()
+  local has_warnings=false
+
+  # 1. CI workflow
+  if [[ -f ".github/workflows/ci.yml" ]]; then
+    local ci_content
+    ci_content=$(cat .github/workflows/ci.yml)
+    local ci_jobs=""
+    local ci_missing=""
+    for job in gitleaks security-audit lint test build; do
+      if echo "$ci_content" | grep -q "^  ${job}:" 2>/dev/null; then
+        ci_jobs="${ci_jobs:+$ci_jobs, }$job"
+      else
+        ci_missing="${ci_missing:+$ci_missing, }$job"
+      fi
+    done
+    if [[ -z "$ci_missing" ]]; then
+      areas+=("CI workflow")
+      statuses+=("pass")
+      details+=("All expected jobs present: $ci_jobs")
+      recommendations+=("")
+    else
+      areas+=("CI workflow")
+      statuses+=("warn")
+      details+=("Missing jobs: $ci_missing")
+      recommendations+=("Add missing jobs to .github/workflows/ci.yml")
+      has_warnings=true
+    fi
+  else
+    areas+=("CI workflow")
+    statuses+=("fail")
+    details+=("No .github/workflows/ci.yml found")
+    recommendations+=("Run 'repo-ci setup' to generate CI workflow")
+    has_warnings=true
+  fi
+
+  # 2. Release workflow
+  if [[ -f ".github/workflows/release.yml" ]]; then
+    local rel_content
+    rel_content=$(cat .github/workflows/release.yml)
+    local rel_jobs=""
+    local rel_missing=""
+    for job in validate publish github-release; do
+      if echo "$rel_content" | grep -q "^  ${job}:" 2>/dev/null; then
+        rel_jobs="${rel_jobs:+$rel_jobs, }$job"
+      else
+        rel_missing="${rel_missing:+$rel_missing, }$job"
+      fi
+    done
+    if [[ -z "$rel_missing" ]]; then
+      areas+=("Release workflow")
+      statuses+=("pass")
+      details+=("All expected jobs present: $rel_jobs")
+      recommendations+=("")
+    else
+      areas+=("Release workflow")
+      statuses+=("warn")
+      details+=("Missing jobs: $rel_missing")
+      recommendations+=("Add missing jobs to .github/workflows/release.yml")
+      has_warnings=true
+    fi
+  else
+    areas+=("Release workflow")
+    statuses+=("fail")
+    details+=("No .github/workflows/release.yml found")
+    recommendations+=("Run 'repo-ci setup' to generate release workflow")
+    has_warnings=true
+  fi
+
+  # 3. Formatter
+  if [[ "$stack" == "node" ]]; then
+    if [[ -f ".prettierrc" ]] || [[ -f ".prettierrc.json" ]] || [[ -f ".prettierrc.js" ]] || [[ -f "prettier.config.js" ]]; then
+      areas+=("Formatter")
+      statuses+=("pass")
+      details+=("Prettier configuration found")
+      recommendations+=("")
+    else
+      areas+=("Formatter")
+      statuses+=("fail")
+      details+=("No Prettier configuration found")
+      recommendations+=("Add .prettierrc with project formatting rules")
+      has_warnings=true
+    fi
+  elif [[ "$stack" == "python" ]]; then
+    local has_ruff=false
+    if [[ -f "ruff.toml" ]] || [[ -f ".ruff.toml" ]]; then
+      has_ruff=true
+    elif [[ -f "pyproject.toml" ]] && grep -q '\[tool\.ruff\]' pyproject.toml 2>/dev/null; then
+      has_ruff=true
+    fi
+    if [[ "$has_ruff" == true ]]; then
+      areas+=("Formatter")
+      statuses+=("pass")
+      details+=("Ruff configuration found")
+      recommendations+=("")
+    else
+      areas+=("Formatter")
+      statuses+=("fail")
+      details+=("No ruff configuration found")
+      recommendations+=("Add [tool.ruff] section to pyproject.toml")
+      has_warnings=true
+    fi
+  else
+    areas+=("Formatter")
+    statuses+=("warn")
+    details+=("Unknown stack; cannot check formatter")
+    recommendations+=("Detect stack first")
+    has_warnings=true
+  fi
+
+  # 4. Coverage
+  local coverage_found=false
+  if [[ "$stack" == "node" ]]; then
+    for cfg in vitest.config.ts vitest.config.js jest.config.ts jest.config.js; do
+      if [[ -f "$cfg" ]] && grep -q 'coverage' "$cfg" 2>/dev/null; then
+        coverage_found=true
+        break
+      fi
+    done
+    if [[ "$coverage_found" == true ]]; then
+      local has_thresholds=false
+      for cfg in vitest.config.ts vitest.config.js jest.config.ts jest.config.js; do
+        if [[ -f "$cfg" ]] && grep -q 'threshold' "$cfg" 2>/dev/null; then
+          has_thresholds=true
+          break
+        fi
+      done
+      if [[ "$has_thresholds" == true ]]; then
+        areas+=("Coverage")
+        statuses+=("pass")
+        details+=("Coverage with thresholds configured")
+        recommendations+=("")
+      else
+        areas+=("Coverage")
+        statuses+=("warn")
+        details+=("Coverage enabled but no thresholds set")
+        recommendations+=("Add coverage thresholds to test config")
+        has_warnings=true
+      fi
+    else
+      areas+=("Coverage")
+      statuses+=("fail")
+      details+=("No coverage configuration found")
+      recommendations+=("Add coverage configuration to test config")
+      has_warnings=true
+    fi
+  elif [[ "$stack" == "python" ]]; then
+    if [[ -f "pyproject.toml" ]] && grep -q 'pytest' pyproject.toml 2>/dev/null && grep -q 'cov' pyproject.toml 2>/dev/null; then
+      coverage_found=true
+    elif [[ -f "setup.cfg" ]] && grep -q 'cov' setup.cfg 2>/dev/null; then
+      coverage_found=true
+    fi
+    if [[ "$coverage_found" == true ]]; then
+      areas+=("Coverage")
+      statuses+=("pass")
+      details+=("Coverage configuration found")
+      recommendations+=("")
+    else
+      areas+=("Coverage")
+      statuses+=("warn")
+      details+=("No coverage configuration detected")
+      recommendations+=("Add pytest-cov configuration to pyproject.toml")
+      has_warnings=true
+    fi
+  else
+    areas+=("Coverage")
+    statuses+=("warn")
+    details+=("Unknown stack; cannot check coverage")
+    recommendations+=("Detect stack first")
+    has_warnings=true
+  fi
+
+  # 5. Branch protection
+  local gh_authenticated=false
+  if command -v gh &>/dev/null && gh auth status &>/dev/null 2>&1; then
+    gh_authenticated=true
+  fi
+  if [[ "$gh_authenticated" == true ]]; then
+    local repo_slug
+    repo_slug=$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || echo "")
+    if [[ -n "$repo_slug" ]]; then
+      local rulesets
+      rulesets=$(gh api "repos/$repo_slug/rulesets" 2>/dev/null || echo "[]")
+      local ruleset_count
+      ruleset_count=$(echo "$rulesets" | grep -c '"id"' 2>/dev/null || true)
+      ruleset_count="${ruleset_count:-0}"
+      ruleset_count="${ruleset_count//[^0-9]/}"
+      if [[ "$ruleset_count" -gt 0 ]]; then
+        areas+=("Branch protection")
+        statuses+=("pass")
+        details+=("$ruleset_count ruleset(s) found")
+        recommendations+=("")
+      else
+        areas+=("Branch protection")
+        statuses+=("fail")
+        details+=("No branch rulesets configured")
+        recommendations+=("Run 'repo-ci setup' with rulesets enabled")
+        has_warnings=true
+      fi
+    else
+      areas+=("Branch protection")
+      statuses+=("warn")
+      details+=("Not in a GitHub repository")
+      recommendations+=("Run from a cloned GitHub repository")
+      has_warnings=true
+    fi
+  else
+    areas+=("Branch protection")
+    statuses+=("warn")
+    details+=("gh CLI not authenticated; skipping check")
+    recommendations+=("Run 'gh auth login' to enable this check")
+    has_warnings=true
+  fi
+
+  # 6. Security scanning
+  if [[ -f ".github/workflows/ci.yml" ]]; then
+    local ci_sec
+    ci_sec=$(cat .github/workflows/ci.yml)
+    local has_gitleaks=false
+    local has_audit=false
+    if echo "$ci_sec" | grep -q 'gitleaks' 2>/dev/null; then
+      has_gitleaks=true
+    fi
+    if echo "$ci_sec" | grep -q 'security-audit\|npm audit\|pip-audit' 2>/dev/null; then
+      has_audit=true
+    fi
+    if [[ "$has_gitleaks" == true ]] && [[ "$has_audit" == true ]]; then
+      areas+=("Security scanning")
+      statuses+=("pass")
+      details+=("Gitleaks and dependency audit configured")
+      recommendations+=("")
+    elif [[ "$has_gitleaks" == true ]] || [[ "$has_audit" == true ]]; then
+      areas+=("Security scanning")
+      statuses+=("warn")
+      local sec_detail=""
+      [[ "$has_gitleaks" == false ]] && sec_detail="Missing gitleaks"
+      [[ "$has_audit" == false ]] && sec_detail="${sec_detail:+$sec_detail; }Missing dependency audit"
+      details+=("$sec_detail")
+      recommendations+=("Add missing security scanning jobs")
+      has_warnings=true
+    else
+      areas+=("Security scanning")
+      statuses+=("fail")
+      details+=("No security scanning found in CI")
+      recommendations+=("Add gitleaks and dependency audit jobs")
+      has_warnings=true
+    fi
+  else
+    areas+=("Security scanning")
+    statuses+=("fail")
+    details+=("No CI workflow to check")
+    recommendations+=("Run 'repo-ci setup' to generate CI workflow")
+    has_warnings=true
+  fi
+
+  # Output
+  if [[ "$json_output" == true ]]; then
+    echo "{"
+    echo "  \"stack\": \"$stack\","
+    echo "  \"areas\": ["
+    for i in "${!areas[@]}"; do
+      local comma=""
+      [[ $i -lt $(( ${#areas[@]} - 1 )) ]] && comma=","
+      echo "    {"
+      echo "      \"name\": \"$(escape_json "${areas[$i]}")\","
+      echo "      \"status\": \"${statuses[$i]}\","
+      echo "      \"details\": \"$(escape_json "${details[$i]}")\","
+      echo "      \"recommendation\": \"$(escape_json "${recommendations[$i]}")\""
+      echo "    }$comma"
+    done
+    echo "  ]"
+    echo "}"
+  else
+    echo "${BOLD}CI Health Audit${RESET} (stack: $stack)"
+    echo ""
+    for i in "${!areas[@]}"; do
+      case "${statuses[$i]}" in
+        pass) pass "${areas[$i]}: ${details[$i]}" ;;
+        warn) warn "${areas[$i]}: ${details[$i]}" ;;
+        fail) fail "${areas[$i]}: ${details[$i]}" ;;
+      esac
+    done
+    echo ""
+    # Print recommendations for non-pass items
+    local has_recs=false
+    for i in "${!areas[@]}"; do
+      if [[ "${statuses[$i]}" != "pass" ]] && [[ -n "${recommendations[$i]}" ]]; then
+        if [[ "$has_recs" == false ]]; then
+          echo "${BOLD}Recommendations:${RESET}"
+          has_recs=true
+        fi
+        echo "  - ${recommendations[$i]}"
+      fi
+    done
+  fi
+
+  if [[ "$has_warnings" == true ]]; then
+    return 2
+  fi
+  return 0
+}
+
+# --- Setup ---
+
+prompt_or_default() {
+  local prompt_text="$1"
+  local default_val="$2"
+  if [[ -t 0 ]]; then
+    local input
+    read -rp "${prompt_text} [${default_val}]: " input
+    echo "${input:-$default_val}"
+  else
+    echo "$default_val"
+  fi
+}
+
+expand_template() {
+  local template_file="$1"
+  shift
+  local content
+  content=$(cat "$template_file")
+  while [[ $# -gt 0 ]]; do
+    local key="$1"
+    local val="$2"
+    content=$(echo "$content" | sed "s|{{${key}}}|${val}|g")
+    shift 2
+  done
+  echo "$content"
+}
+
+setup_repo() {
+  local dry_run="$1"
+  local preset="$2"
+
+  local stack
+  if [[ -n "$preset" ]]; then
+    stack="$preset"
+  else
+    stack=$(detect_stack)
+  fi
+
+  if [[ "$stack" == "unknown" ]]; then
+    echo "${YELLOW}Unsupported stack.${RESET}" >&2
+    echo "Could not detect project type (no package.json, pyproject.toml, or setup.py)." >&2
+    echo "Supported stacks: node, python" >&2
+    echo "Use --preset to specify the stack manually." >&2
+    exit 2
+  fi
+
+  local template_path="$TEMPLATE_DIR/$stack"
+  if [[ ! -d "$template_path" ]]; then
+    die "Template directory not found: $template_path"
+  fi
+
+  local created_files=()
+
+  if [[ "$stack" == "node" ]]; then
+    local node_version pkg_manager test_framework
+    local cov_lines cov_functions cov_branches build_output
+
+    node_version=$(prompt_or_default "Node version" "22")
+    pkg_manager=$(detect_pkg_manager)
+    test_framework=$(detect_test_framework "$stack")
+
+    local install_cmd="npm ci"
+    [[ "$pkg_manager" == "pnpm" ]] && install_cmd="pnpm install --frozen-lockfile"
+
+    local test_coverage_cmd="npx vitest run --coverage"
+    [[ "$test_framework" == "jest" ]] && test_coverage_cmd="npx jest --coverage"
+
+    local build_cmd="npm run build"
+    build_output=$(prompt_or_default "Build output path" "dist/cli.js")
+
+    local publish_cmd="npm publish --provenance --access public"
+
+    cov_lines=$(prompt_or_default "Coverage threshold: lines" "40")
+    cov_functions=$(prompt_or_default "Coverage threshold: functions" "80")
+    cov_branches=$(prompt_or_default "Coverage threshold: branches" "75")
+
+    local enable_rulesets
+    enable_rulesets=$(prompt_or_default "Create branch rulesets" "yes")
+
+    # Expand CI template
+    local ci_content
+    ci_content=$(expand_template "$template_path/ci.yml" \
+      "NODE_VERSION" "$node_version" \
+      "PKG_MANAGER" "$pkg_manager" \
+      "INSTALL_CMD" "$install_cmd" \
+      "TEST_COVERAGE_CMD" "$test_coverage_cmd" \
+      "BUILD_CMD" "$build_cmd" \
+      "BUILD_OUTPUT" "$build_output")
+
+    # Expand release template
+    local release_content
+    release_content=$(expand_template "$template_path/release.yml" \
+      "NODE_VERSION" "$node_version" \
+      "PKG_MANAGER" "$pkg_manager" \
+      "INSTALL_CMD" "$install_cmd" \
+      "BUILD_CMD" "$build_cmd" \
+      "PUBLISH_CMD" "$publish_cmd")
+
+    if [[ "$dry_run" == true ]]; then
+      echo "--- .github/workflows/ci.yml ---"
+      echo "$ci_content"
+      echo ""
+      echo "--- .github/workflows/release.yml ---"
+      echo "$release_content"
+    else
+      mkdir -p .github/workflows
+      echo "$ci_content" > .github/workflows/ci.yml
+      created_files+=(".github/workflows/ci.yml")
+      echo "$release_content" > .github/workflows/release.yml
+      created_files+=(".github/workflows/release.yml")
+    fi
+
+    # Branch rulesets
+    if [[ "$enable_rulesets" == "yes" ]] && [[ "$dry_run" != true ]]; then
+      setup_rulesets
+    fi
+
+  elif [[ "$stack" == "python" ]]; then
+    local python_version
+    python_version=$(prompt_or_default "Python version" "3.12")
+
+    local enable_rulesets
+    enable_rulesets=$(prompt_or_default "Create branch rulesets" "yes")
+
+    # Expand CI template
+    local ci_content
+    ci_content=$(expand_template "$template_path/ci.yml" \
+      "PYTHON_VERSION" "$python_version")
+
+    # Expand release template
+    local release_content
+    release_content=$(expand_template "$template_path/release.yml" \
+      "PYTHON_VERSION" "$python_version")
+
+    if [[ "$dry_run" == true ]]; then
+      echo "--- .github/workflows/ci.yml ---"
+      echo "$ci_content"
+      echo ""
+      echo "--- .github/workflows/release.yml ---"
+      echo "$release_content"
+    else
+      mkdir -p .github/workflows
+      echo "$ci_content" > .github/workflows/ci.yml
+      created_files+=(".github/workflows/ci.yml")
+      echo "$release_content" > .github/workflows/release.yml
+      created_files+=(".github/workflows/release.yml")
+    fi
+
+    # Branch rulesets
+    if [[ "$enable_rulesets" == "yes" ]] && [[ "$dry_run" != true ]]; then
+      setup_rulesets
+    fi
+  fi
+
+  if [[ "$dry_run" != true ]] && [[ ${#created_files[@]} -gt 0 ]]; then
+    echo ""
+    echo "${BOLD}Setup complete.${RESET} Created files:"
+    for f in "${created_files[@]}"; do
+      echo "  - $f"
+    done
+  fi
+}
+
+setup_rulesets() {
+  if ! command -v gh &>/dev/null || ! gh auth status &>/dev/null 2>&1; then
+    echo "${YELLOW}gh CLI not authenticated; skipping ruleset creation.${RESET}" >&2
+    return 0
+  fi
+
+  local repo_slug
+  repo_slug=$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || echo "")
+  if [[ -z "$repo_slug" ]]; then
+    echo "${YELLOW}Not in a GitHub repository; skipping ruleset creation.${RESET}" >&2
+    return 0
+  fi
+
+  local default_branch
+  default_branch=$(gh repo view --json defaultBranchRef -q '.defaultBranchRef.name' 2>/dev/null || echo "main")
+
+  local ruleset_payload
+  ruleset_payload=$(cat <<ENDJSON
+{
+  "name": "Protect $default_branch",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": ["refs/heads/$default_branch"],
+      "exclude": []
+    }
+  },
+  "rules": [
+    {"type": "pull_request", "parameters": {"required_approving_review_count": 1, "dismiss_stale_reviews_on_push": true, "require_last_push_approval": false}},
+    {"type": "non_fast_forward"}
+  ]
+}
+ENDJSON
+)
+
+  if gh api "repos/$repo_slug/rulesets" --method POST --input - <<< "$ruleset_payload" &>/dev/null; then
+    echo "  ${GREEN}Created branch ruleset for $default_branch${RESET}"
+  else
+    echo "  ${YELLOW}Failed to create branch ruleset (may require admin permissions)${RESET}" >&2
+  fi
+}
+
+# --- Main argument parsing ---
+
+if [[ $# -eq 0 ]]; then
+  usage
+  exit 1
+fi
+
+COMMAND="$1"
+shift
+
+case "$COMMAND" in
+  audit)
+    JSON_OUTPUT=false
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --json) JSON_OUTPUT=true; shift ;;
+        --help) usage_audit; exit 0 ;;
+        *) die "Unknown option for audit: $1" ;;
+      esac
+    done
+    audit_repo "$JSON_OUTPUT"
+    ;;
+  setup)
+    DRY_RUN=false
+    PRESET=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --dry-run) DRY_RUN=true; shift ;;
+        --preset) PRESET="$2"; shift 2 ;;
+        --help) usage_setup; exit 0 ;;
+        *) die "Unknown option for setup: $1" ;;
+      esac
+    done
+    setup_repo "$DRY_RUN" "$PRESET"
+    ;;
+  --help) usage; exit 0 ;;
+  *) die "Unknown command: $COMMAND. Run 'repo-ci --help' for usage." ;;
+esac

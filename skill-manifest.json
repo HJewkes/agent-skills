@@ -15,6 +15,10 @@
       "type": "original",
       "description": "Second brain knowledge base with hybrid BM25 + vector search"
     },
+    "buildkite": {
+      "type": "original",
+      "description": "Buildkite CI/CD integration via bk CLI"
+    },
     "brainstorming": {
       "type": "fork",
       "upstream": "obra/superpowers",
@@ -52,6 +56,10 @@
       "upstream": "obra/superpowers",
       "upstreamPath": "skills/receiving-code-review",
       "forkedAt": "2026-02-16"
+    },
+    "repo-ci": {
+      "type": "original",
+      "description": "CI/release workflow auditing and scaffolding for Node and Python repos"
     },
     "research": { "type": "original" },
     "sdk-verify": { "type": "original" },
