@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate skills
+        run: |
+          set +e
+          ./skills/skills-management/scripts/skill-manager validate
+          code=$?
+          set -e
+          if [ $code -eq 1 ]; then echo "Validation errors found"; exit 1; fi
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+      - name: Lint bash scripts
+        run: |
+          mapfile -t all_files < <(
+            { find skills/*/scripts -type f ! -name '.gitkeep' 2>/dev/null
+              find . -name '*.sh' -not -path './.git/*' 2>/dev/null
+            } | sort -u
+          )
+          if [ "${#all_files[@]}" -eq 0 ]; then
+            echo "No scripts found to lint"
+            exit 0
+          fi
+          shellcheck "${all_files[@]}"
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install bats
+        run: npm ci
+      - name: Run tests
+        run: npx bats tests/
