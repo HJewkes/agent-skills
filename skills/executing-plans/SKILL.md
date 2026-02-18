@@ -25,11 +25,7 @@ Load plan, review critically, execute tasks in batches, report for review betwee
 5. If concerns: Raise them with your human partner before starting
 6. If no concerns: Create TodoWrite and proceed
 
-**Legacy monolithic format** (`docs/plans/*.md`):
-1. Read the plan file directly
-2. Follow the same review and batch process below
-
-**Format detection:** If the path contains `manifest.json` or points to a directory, use plan directory format. If it points to a `.md` file, use legacy format. If no path given, check `.claude/plans/` for the most recent directory, fall back to `docs/plans/` for the most recent `.md`.
+**Format detection:** If the path contains `manifest.json` or points to a directory, use plan directory format. If it points to a `.md` file, read it directly and follow the same review and batch process below. If no path given, check `.claude/plans/` for the most recent directory.
 
 ### Step 2: Execute Batch
 **Default: First 3 tasks**

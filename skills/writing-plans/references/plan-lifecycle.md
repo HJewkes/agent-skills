@@ -22,7 +22,7 @@ The `writing-plans` skill creates the plan directory with:
 2. `manifest.json` — machine-readable: task IDs, wave grouping, file ownership, dependency edges, status tracking
 3. `briefings/task-NN.md` — one per task, following the [briefing template](./briefing-template.md)
 
-Plan directories live in `.claude/plans/`, never in `docs/plans/`.
+Plan directories live in `.claude/plans/`.
 
 ## During Execution
 
@@ -48,13 +48,6 @@ A plan directory is considered stale if:
 The executing skill checks for stale directories at startup and warns the user:
 - Offer to clean up stale directories before proceeding
 - Never auto-delete without confirmation
-
-## Backward Compatibility
-
-Legacy monolithic plans in `docs/plans/*.md` remain supported. Detection logic:
-- Path points to a `.md` file directly → old monolithic format
-- Path points to a directory containing `manifest.json` → new plan directory format
-- No path given → check `.claude/plans/` for most recent directory, fall back to `docs/plans/` for most recent `.md`
 
 ## Rules
 
