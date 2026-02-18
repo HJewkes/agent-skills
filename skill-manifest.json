@@ -57,6 +57,10 @@
       "upstreamPath": "skills/receiving-code-review",
       "forkedAt": "2026-02-16"
     },
+    "repo-ci": {
+      "type": "original",
+      "description": "CI/release workflow auditing and scaffolding for Node and Python repos"
+    },
     "research": { "type": "original" },
     "sdk-verify": { "type": "original" },
     "self-improve": { "type": "original" },
