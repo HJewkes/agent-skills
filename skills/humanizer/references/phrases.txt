@@ -1,0 +1,56 @@
+# Humanizer phrase patterns
+# Format: pattern<TAB>category<TAB>note
+# Lines starting with # are comments
+# Patterns are grep -iE compatible (extended regex)
+
+# Tier 1: Red flags — near-certain AI signal
+delve	red-flag	Most-flagged AI word
+tapestry	red-flag	Almost never used naturally
+bustling	red-flag	AI scene-setting cliche
+testament	red-flag	"a testament to" is pure AI
+vibrant	red-flag	AI-inflated adjective
+seamless(ly)?	red-flag	AI-inflated adverb/adjective
+\brobust\b	red-flag	AI-inflated adjective
+comprehensive	red-flag	AI-inflated adjective
+paramount	red-flag	AI-inflated adjective
+pivotal	red-flag	AI-inflated adjective
+\bfoster\b	red-flag	AI-cliche verb
+\bleverage\b	red-flag	AI-cliche verb
+\bembark\b	red-flag	AI-cliche verb
+underscore	red-flag	AI-cliche verb meaning emphasize
+\bnuanced?\b	red-flag	Deployed without actual nuance
+\brealm\b	red-flag	"in the realm of"
+landscape	red-flag	"the ever-changing landscape"
+cutting-edge	red-flag	AI-inflated adjective
+meticulous(ly)?	red-flag	AI-inflated adjective
+
+# Tier 2: Hedging phrases — filler that adds nothing
+it's important to note	hedging	Filler phrase
+it's worth noting	hedging	Filler phrase
+it is essential to	hedging	Overly formal hedging
+it is crucial to	hedging	Overly formal hedging
+it goes without saying	hedging	Then don't say it
+as we can see	hedging	Filler phrase
+in today's .*(world|age|era)	hedging	Cliche opener
+when it comes to	hedging	Wordy filler
+with that in mind	hedging	Wordy transition
+at the end of the day	hedging	Cliche closer
+
+# Tier 3: Filler openers and closers
+I hope this .* finds you well	filler	Email cliche opener
+please don't hesitate	filler	Formulaic closer
+feel free to reach out	filler	Formulaic closer
+in conclusion	filler	Formulaic section closer
+in summary	filler	Formulaic section closer
+to summarize	filler	Formulaic section closer
+without further ado	filler	Cliche transition
+let's (dive|delve) in	filler	AI opener cliche
+
+# Tier 4: Overused formal transitions
+\bfurthermore\b	formality	Overused formal transition
+\bmoreover\b	formality	Overused formal transition
+\badditionally\b	formality	Overused formal transition
+\bsubsequently\b	formality	Overused formal transition
+\bconsequently\b	formality	Overused formal transition
+\bnotably\b	formality	Overused formal transition
+\bsignificantly\b	formality	Overused formal transition
