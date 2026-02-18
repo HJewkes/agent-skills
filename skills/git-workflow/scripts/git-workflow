@@ -1,0 +1,188 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Color helpers
+if [[ -t 1 ]] && command -v tput &>/dev/null; then
+  RED=$(tput setaf 1)
+  GREEN=$(tput setaf 2)
+  YELLOW=$(tput setaf 3)
+  CYAN=$(tput setaf 6)
+  BOLD=$(tput bold)
+  RESET=$(tput sgr0)
+else
+  RED="" GREEN="" YELLOW="" CYAN="" BOLD="" RESET=""
+fi
+
+die() { echo "${RED}Error: $1${RESET}" >&2; exit 1; }
+info() { echo "${CYAN}$1${RESET}" >&2; }
+warn() { echo "${YELLOW}Warning: $1${RESET}" >&2; }
+
+# --- Tool detection ---
+
+detect_tool() {
+  if command -v gt &>/dev/null; then
+    echo "graphite"
+  elif command -v git &>/dev/null; then
+    echo "git"
+  else
+    echo "none"
+  fi
+}
+
+detect_trunk() {
+  local remote="${1:-origin}"
+  if git rev-parse --verify "$remote/main" &>/dev/null; then
+    echo "main"
+  elif git rev-parse --verify "$remote/master" &>/dev/null; then
+    echo "master"
+  else
+    git remote show "$remote" 2>/dev/null | awk '/HEAD branch/{print $NF}' || echo "main"
+  fi
+}
+
+# --- Usage ---
+
+usage() {
+  cat <<'EOF'
+Usage: git-workflow <command> [options]
+
+Commands:
+  status     Detect environment and report repo state (default)
+  commit     Guided commit with conventional format
+  split      Analyze and decompose large diffs
+  stack      View and manage branch stack
+  worktree   Create isolated worktree
+  clean      Remove merged/gone branches
+
+Options:
+  --help     Show this help message
+
+Run 'git-workflow <command> --help' for command-specific options.
+
+Exit codes:
+  0  Success
+  1  Error
+  2  Warnings
+EOF
+}
+
+# --- Status subcommand ---
+
+usage_status() {
+  cat <<'EOF'
+Usage: git-workflow status [options]
+
+Detect git tool (Graphite or Git) and report repository state.
+
+Options:
+  --json     Output as JSON
+  --help     Show this help message
+
+Output includes:
+  - Detected tool (graphite or git) and version
+  - Current branch
+  - Dirty file count (staged + unstaged)
+  - Ahead/behind counts relative to remote
+  - Stack state (Graphite only)
+EOF
+}
+
+cmd_status() {
+  local json_output=false
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json_output=true; shift ;;
+      --help) usage_status; exit 0 ;;
+      *) die "Unknown option for status: $1" ;;
+    esac
+  done
+
+  # Must be in a git repo
+  git rev-parse --git-dir &>/dev/null || die "not a git repository"
+
+  local tool
+  tool=$(detect_tool)
+  [[ "$tool" == "none" ]] && die "neither git nor gt found"
+
+  local tool_version=""
+  if [[ "$tool" == "graphite" ]]; then
+    tool_version=$(gt --version 2>/dev/null || echo "unknown")
+  else
+    tool_version=$(git --version 2>/dev/null | awk '{print $3}')
+  fi
+
+  local branch
+  branch=$(git branch --show-current 2>/dev/null || echo "detached")
+
+  local trunk
+  trunk=$(detect_trunk)
+
+  # Dirty files
+  local staged unstaged
+  staged=$(git diff --cached --numstat 2>/dev/null | wc -l | tr -d ' ')
+  unstaged=$(git diff --numstat 2>/dev/null | wc -l | tr -d ' ')
+  local untracked
+  untracked=$(git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')
+
+  # Ahead/behind
+  local ahead=0 behind=0
+  if git rev-parse --verify "origin/$branch" &>/dev/null; then
+    ahead=$(git rev-list --count "origin/$branch..HEAD" 2>/dev/null || echo 0)
+    behind=$(git rev-list --count "HEAD..origin/$branch" 2>/dev/null || echo 0)
+  fi
+
+  # Stack state (Graphite only)
+  local stack_info=""
+  if [[ "$tool" == "graphite" ]]; then
+    stack_info=$(gt log short 2>/dev/null || echo "no stack")
+  fi
+
+  if [[ "$json_output" == true ]]; then
+    cat <<ENDJSON
+{
+  "tool": "$tool",
+  "toolVersion": "$tool_version",
+  "branch": "$branch",
+  "trunk": "$trunk",
+  "staged": $staged,
+  "unstaged": $unstaged,
+  "untracked": $untracked,
+  "ahead": $ahead,
+  "behind": $behind
+}
+ENDJSON
+  else
+    echo "${BOLD}Git Workflow Status${RESET}"
+    echo ""
+    echo "  Tool:      ${GREEN}$tool${RESET} ($tool_version)"
+    echo "  Branch:    ${CYAN}$branch${RESET}"
+    echo "  Trunk:     $trunk"
+    echo "  Staged:    $staged files"
+    echo "  Unstaged:  $unstaged files"
+    echo "  Untracked: $untracked files"
+    echo "  Ahead:     $ahead commits"
+    echo "  Behind:    $behind commits"
+    if [[ -n "$stack_info" && "$stack_info" != "no stack" ]]; then
+      echo ""
+      echo "  ${BOLD}Stack:${RESET}"
+      echo "    ${stack_info//$'\n'/$'\n'    }"
+    fi
+  fi
+}
+
+# --- Subcommand routing ---
+
+COMMAND="${1:-status}"
+shift 2>/dev/null || true
+
+case "$COMMAND" in
+  status)   cmd_status "$@" ;;
+  commit)   die "commit subcommand not yet implemented" ;;
+  split)    die "split subcommand not yet implemented" ;;
+  stack)    die "stack subcommand not yet implemented" ;;
+  worktree) die "worktree subcommand not yet implemented" ;;
+  clean)    die "clean subcommand not yet implemented" ;;
+  --help|-h) usage; exit 0 ;;
+  *)        die "Unknown command: $COMMAND. Run 'git-workflow --help' for usage." ;;
+esac
