@@ -15,7 +15,9 @@ setup() {
     cd "$REPO_ROOT"
     run "$SKILL_MANAGER" validate
     # exit 0 = pass, exit 1 = errors, exit 2 = warnings; all are valid validate outcomes
-    [[ "$status" -eq 0 || "$status" -eq 1 || "$status" -eq 2 ]]
+    if [[ "$status" -ne 0 && "$status" -ne 1 && "$status" -ne 2 ]]; then
+        fail "unexpected exit status $status"
+    fi
 }
 
 @test "skill-manager with unknown command fails" {

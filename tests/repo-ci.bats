@@ -18,7 +18,9 @@ setup() {
     cd "$REPO_ROOT"
     run "$REPO_CI" audit --json
     # exit 0 = pass, exit 2 = warnings; both acceptable smoke outcomes
-    [[ "$status" -eq 0 || "$status" -eq 2 ]]
+    if [[ "$status" -ne 0 && "$status" -ne 2 ]]; then
+        fail "unexpected exit status $status"
+    fi
     # Verify output is valid JSON
     echo "$output" | python3 -m json.tool > /dev/null
 }
@@ -27,7 +29,9 @@ setup() {
     cd "$REPO_ROOT"
     run "$REPO_CI" audit
     # Should never exit 1 (error) on a valid repo
-    [[ "$status" -eq 0 || "$status" -eq 2 ]]
+    if [[ "$status" -ne 0 && "$status" -ne 2 ]]; then
+        fail "unexpected exit status $status"
+    fi
 }
 
 @test "repo-ci with unknown command fails" {
