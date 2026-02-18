@@ -53,6 +53,8 @@ Scripts must live in the skill's own `scripts/` directory:
 
 Do not reference shared bin directories or external script paths. Every script the skill needs should be co-located or available at a documented repo-level path.
 
+**macOS compatibility:** Use `#!/bin/zsh` (not `#!/bin/bash`) for scripts that use unicode/nerd font glyphs — macOS ships bash 3.2 which doesn't support `\u` escapes in `printf`.
+
 ## Description Quality
 
 The description field is the single most important line for skill discovery. Audit against:

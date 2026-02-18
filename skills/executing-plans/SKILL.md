@@ -25,7 +25,11 @@ Load plan, review critically, execute tasks in batches, report for review betwee
 5. If concerns: Raise them with your human partner before starting
 6. If no concerns: Create TodoWrite and proceed
 
-**Format detection:** If the path contains `manifest.json` or points to a directory, use plan directory format. If it points to a `.md` file, read it directly and follow the same review and batch process below. If no path given, check `.claude/plans/` for the most recent directory.
+**Legacy monolithic format** (`docs/plans/*.md`):
+1. Read the plan file directly
+2. Follow the same review and batch process below
+
+**Format detection:** If the path contains `manifest.json` or points to a directory, use plan directory format. If it points to a `.md` file, use legacy format. If no path given, check `.claude/plans/` for the most recent directory, fall back to `docs/plans/` for the most recent `.md`.
 
 ### Step 2: Execute Batch
 **Default: First 3 tasks**
@@ -59,33 +63,9 @@ After all tasks complete and verified:
 3. **REQUIRED SUB-SKILL:** Use finishing-a-development-branch
 4. Follow that skill to verify tests, present options, execute choice
 
-## When to Stop and Ask for Help
+## Guardrails
 
-**STOP executing immediately when:**
-- Hit a blocker mid-batch (missing dependency, test fails, instruction unclear)
-- Plan has critical gaps preventing starting
-- You don't understand an instruction
-- Verification fails repeatedly
-
-**Ask for clarification rather than guessing.**
-
-## When to Revisit Earlier Steps
-
-**Return to Review (Step 1) when:**
-- Partner updates the plan based on your feedback
-- Fundamental approach needs rethinking
-
-**Don't force through blockers** - stop and ask.
-
-## Remember
-- Review plan critically first
-- Follow plan steps exactly
-- Don't skip verifications
-- Read briefing files per-batch, not all at once
-- Reference skills when plan says to
-- Between batches: just report and wait
-- Stop when blocked, don't guess
-- Never start implementation on main/master branch without explicit user consent
+Stop and ask when blocked — don't guess. See [references/guardrails.md](references/guardrails.md) for full stop conditions and checklist.
 
 ## Integration
 
