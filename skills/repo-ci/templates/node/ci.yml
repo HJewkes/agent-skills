@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '{{NODE_VERSION}}'
+      - run: {{INSTALL_CMD}}
+      - run: npm audit --audit-level=critical
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '{{NODE_VERSION}}'
+          cache: '{{PKG_MANAGER}}'
+      - run: {{INSTALL_CMD}}
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run typecheck
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '{{NODE_VERSION}}'
+          cache: '{{PKG_MANAGER}}'
+      - run: {{INSTALL_CMD}}
+      - run: {{TEST_COVERAGE_CMD}}
+      - uses: codecov/codecov-action@v5
+        with:
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '{{NODE_VERSION}}'
+          cache: '{{PKG_MANAGER}}'
+      - run: {{INSTALL_CMD}}
+      - run: {{BUILD_CMD}}
+      - name: Verify build output
+        run: test -f {{BUILD_OUTPUT}} || (echo "Build output missing" && exit 1)
