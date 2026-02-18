@@ -1,0 +1,178 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PHRASES_FILE="$SCRIPT_DIR/../references/phrases.txt"
+
+# Flags
+REPORT=false
+INPUT_FILE=""
+
+usage() {
+  cat <<'EOF'
+Usage: humanize [options] [file]
+
+Clean AI-generated text: normalize characters and flag overused phrases.
+
+Input:
+  file           Read from file (default: stdin)
+
+Options:
+  --report       Verbose output: include character replacement counts
+  --help         Show this help message
+
+Output:
+  stdout         Cleaned text
+  stderr         Phrase flags (default: lean LLM format; --report: verbose)
+
+Exit codes:
+  0  Clean — no phrase flags found
+  1  Error
+  2  Phrase flags found (text still cleaned and output)
+EOF
+}
+
+# Parse args
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --report) REPORT=true; shift ;;
+    --help) usage; exit 0 ;;
+    -*) echo "Unknown option: $1" >&2; usage >&2; exit 1 ;;
+    *) INPUT_FILE="$1"; shift ;;
+  esac
+done
+
+# Read input
+if [[ -n "$INPUT_FILE" ]]; then
+  [[ -f "$INPUT_FILE" ]] || { echo "Error: file not found: $INPUT_FILE" >&2; exit 1; }
+  INPUT=$(cat "$INPUT_FILE")
+else
+  INPUT=$(cat)
+fi
+
+# === Pass 1: Character Replacements ===
+
+REPLACE_COUNT=0
+COUNT_LABELS=()
+COUNT_VALUES=()
+count_replace() {
+  local label="$1" pattern="$2" replacement="$3"
+  local before after count
+  before=$(echo "$TEXT" | grep -c "$pattern" 2>/dev/null || true)
+  TEXT=$(echo "$TEXT" | sed "s/$pattern/$replacement/g")
+  after=$(echo "$TEXT" | grep -c "$pattern" 2>/dev/null || true)
+  count=$((before - after))
+  if [[ $count -gt 0 ]]; then
+    COUNT_LABELS+=("$label")
+    COUNT_VALUES+=("$count")
+    REPLACE_COUNT=$((REPLACE_COUNT + 1))
+  fi
+}
+
+TEXT="$INPUT"
+
+# Em dash -> space-hyphen-space
+count_replace "em dashes" $'\xe2\x80\x94' ' - '
+
+# En dash -> hyphen
+count_replace "en dashes" $'\xe2\x80\x93' '-'
+
+# Smart double quotes -> straight
+count_replace "smart double quotes" $'\xe2\x80\x9c' '"'
+TEXT=$(echo "$TEXT" | sed "s/$(printf '\xe2\x80\x9d')/\"/g")
+
+# Smart single quotes -> straight
+count_replace "smart single quotes" $'\xe2\x80\x98' "'"
+TEXT=$(echo "$TEXT" | sed "s/$(printf '\xe2\x80\x99')/'/g")
+
+# Ellipsis -> three periods
+count_replace "ellipsis chars" $'\xe2\x80\xa6' '...'
+
+# Non-breaking space -> regular space
+count_replace "non-breaking spaces" $'\xc2\xa0' ' '
+
+# Narrow no-break space -> regular space
+count_replace "narrow no-break spaces" $'\xe2\x80\xaf' ' '
+
+# Bullet -> hyphen
+count_replace "bullet chars" $'\xe2\x80\xa2' '-'
+
+# Remove invisible characters
+for label_hex in \
+  "zero-width spaces:$(printf '\xe2\x80\x8b')" \
+  "zero-width non-joiners:$(printf '\xe2\x80\x8c')" \
+  "word joiners:$(printf '\xe2\x81\xa0')" \
+  "soft hyphens:$(printf '\xc2\xad')" \
+; do
+  label="${label_hex%%:*}"
+  hex="${label_hex#*:}"
+  count_replace "$label" "$hex" ''
+done
+
+# Optional NFKC normalization
+if command -v python3 &>/dev/null; then
+  TEXT=$(echo "$TEXT" | python3 -c "
+import unicodedata, sys
+sys.stdout.write(unicodedata.normalize('NFKC', sys.stdin.read()))
+")
+fi
+
+# Output cleaned text
+echo "$TEXT"
+
+# === Pass 2: Phrase Flagging ===
+
+if [[ ! -f "$PHRASES_FILE" ]]; then
+  echo "Warning: phrases.txt not found at $PHRASES_FILE" >&2
+  exit 0
+fi
+
+FLAG_COUNT=0
+FLAG_LINES=()
+
+while IFS=$'\t' read -r pattern category note; do
+  # Skip comments and empty lines
+  [[ -z "$pattern" || "$pattern" == \#* ]] && continue
+
+  # Grep against cleaned text, capture matches with line numbers
+  while IFS=: read -r lineno match; do
+    FLAG_LINES+=("Line $lineno: \"$match\" [$category]")
+    FLAG_COUNT=$((FLAG_COUNT + 1))
+  done < <(echo "$TEXT" | grep -inE "$pattern" 2>/dev/null | head -20 || true)
+done < "$PHRASES_FILE"
+
+# Report output
+if [[ "$REPORT" == true ]]; then
+  {
+    echo "=== Character Replacements ==="
+    if [[ $REPLACE_COUNT -eq 0 ]]; then
+      echo "  (none)"
+    else
+      for i in "${!COUNT_LABELS[@]}"; do
+        echo "  ${COUNT_VALUES[$i]} ${COUNT_LABELS[$i]} replaced"
+      done
+    fi
+    echo ""
+    echo "=== Phrase Flags (review recommended) ==="
+    if [[ $FLAG_COUNT -eq 0 ]]; then
+      echo "  (none)"
+    else
+      for flag in "${FLAG_LINES[@]}"; do
+        echo "  $flag"
+      done
+    fi
+  } >&2
+else
+  # Default: lean LLM-optimized output — only phrase flags
+  if [[ $FLAG_COUNT -gt 0 ]]; then
+    for flag in "${FLAG_LINES[@]}"; do
+      echo "$flag" >&2
+    done
+  fi
+fi
+
+# Exit code based on flags
+if [[ $FLAG_COUNT -gt 0 ]]; then
+  exit 2
+fi
+exit 0
