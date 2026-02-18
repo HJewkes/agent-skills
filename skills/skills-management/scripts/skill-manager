@@ -186,7 +186,7 @@ EOF
     exit 0
   fi
 
-  rm -rf "$SKILLS_DIR/$name"
+  rm -rf "${SKILLS_DIR:?}/${name:?}"
 
   # Remove from manifest
   if [[ -f "$MANIFEST" ]] && command -v jq &>/dev/null; then
@@ -424,7 +424,7 @@ _validate_skill() {
   fi
 
   # Check for hardcoded ~/.agents/ paths
-  if grep -r '~/\.agents/' "$dir" --include="*.md" -l 2>/dev/null | grep -q .; then
+  if grep -r "$HOME/.agents/" "$dir" --include="*.md" -l 2>/dev/null | grep -q .; then
     echo "WARN  [$name]: contains hardcoded ~/.agents/ paths" >&2
     has_warning=true
   fi

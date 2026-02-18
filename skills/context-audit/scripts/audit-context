@@ -60,6 +60,7 @@ done
 SKILLS_DIR="$HOME/.claude/skills"
 
 if [[ ! -d "$SKILLS_DIR" ]]; then
+  # shellcheck disable=SC2088  # tilde in user-facing message is intentional
   echo "~/.claude/skills/ not found" >&2
   exit 1
 fi
@@ -140,7 +141,7 @@ fi
 if [[ "$(pwd)" != "$HOME" ]]; then
   while IFS= read -r claude_file; do
     [[ -z "$claude_file" ]] && continue
-    rel_path="${claude_file#$(pwd)/}"
+    rel_path="${claude_file#"$(pwd)"/}"
     s=$(file_size "$claude_file")
     w=$(word_count "$claude_file")
     flag="-"
@@ -212,7 +213,7 @@ if [[ -f "$SETTINGS_FILE" ]]; then
 fi
 
 # Sort entries by size descending
-IFS=$'\n' sorted=($(for e in "${entries[@]}"; do echo "$e"; done | sort -t$'\t' -k2 -rn))
+mapfile -t sorted < <(for e in "${entries[@]}"; do echo "$e"; done | sort -t$'\t' -k2 -rn)
 unset IFS
 
 # Compute totals
@@ -272,6 +273,7 @@ session_spikes=()
 if [[ "$DO_SESSION" == true ]]; then
   # Auto-detect session JSONL if not provided
   if [[ -z "$SESSION_PATH" ]]; then
+    # shellcheck disable=SC2012  # ls -t needed for time-sorted output
     SESSION_PATH=$(ls -t "$HOME"/.claude/projects/*/*.jsonl 2>/dev/null | head -1 || true)
   fi
 
@@ -346,7 +348,7 @@ if [[ "$JSON_OUTPUT" == true ]]; then
       "$session_turns" "$session_start" "$session_current" "$session_growth_rate" "$session_cache_hit_pct"
     first=true
     for spike in "${session_spikes[@]}"; do
-      read -r abs_delta delta turn total <<< "$spike"
+      read -r _abs_delta delta turn total <<< "$spike"
       [[ "$first" == true ]] && first=false || printf ","
       printf '{"turn": %d, "delta": %d, "total": %d}' "$turn" "$delta" "$total"
     done
@@ -387,7 +389,7 @@ else
     echo "Top Context Spikes:"
     i=0
     for spike in "${session_spikes[@]}"; do
-      read -r abs_delta delta turn total <<< "$spike"
+      read -r _abs_delta delta turn total <<< "$spike"
       i=$((i + 1))
       sign="+"
       [[ $delta -lt 0 ]] && sign=""
