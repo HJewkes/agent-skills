@@ -115,3 +115,14 @@ Descriptions that try to cover everything the skill does instead of focusing on 
 
 ### Missing "Use when" prefix
 Descriptions that start with "Documents..." or "Provides..." instead of "Use when...". The "Use when" prefix is required for Claude's skill discovery to work effectively.
+
+## Editing Skills — Source of Truth
+
+**Always edit skills in the agents-skills repo** (`~/Documents/projects/agents-skills/skills/`), not the locally installed copy at `~/.agents/skills/`. The installed copy is deployed from the repo and will be overwritten on the next plugin update.
+
+Workflow:
+1. Make changes in the repo (`~/Documents/projects/agents-skills/skills/<skill>/`)
+2. Commit, push, and merge to `main`
+3. Update the installed plugin: `claude plugin update hjewkes-skills`
+
+Editing `~/.agents/skills/` directly will appear to work but the changes are lost when the plugin is next updated. If you spot an issue during a session outside the repo, note it and fix it in the repo later.
