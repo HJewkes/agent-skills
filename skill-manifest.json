@@ -15,6 +15,10 @@
       "type": "original",
       "description": "Second brain knowledge base with hybrid BM25 + vector search"
     },
+    "buildkite": {
+      "type": "original",
+      "description": "Buildkite CI/CD integration via bk CLI"
+    },
     "brainstorming": {
       "type": "fork",
       "upstream": "obra/superpowers",
