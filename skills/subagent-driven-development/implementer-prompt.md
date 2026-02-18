@@ -35,6 +35,11 @@ Task tool (general-purpose):
 
     **Ask them now.** Raise any concerns before starting work.
 
+    ## Branch Context
+
+    You are working on branch `<branch-name>`. Verify you are on the correct
+    branch before committing: `git branch --show-current`
+
     ## Your Job
 
     Once you're clear on requirements:
