@@ -24,3 +24,4 @@ Keep report under 1000 tokens. Lead with verdict (APPROVED/NEEDS_CHANGES). Skip 
 **Common agent mistakes to watch for:**
 - Non-import statements placed between import statements (causes `import/first` lint errors)
 - Removing npm packages that are peer dependencies of other active packages (verify with `node -e "console.log(require('<pkg>/package.json').peerDependencies)"` before approving removals)
+- If the task adds CI linting (shellcheck, eslint, etc.), verify ALL files that CI would lint pass cleanly, not just the files in the task's ownership list

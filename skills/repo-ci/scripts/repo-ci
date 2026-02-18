@@ -455,6 +455,7 @@ expand_template() {
   while [[ $# -gt 0 ]]; do
     local key="$1"
     local val="$2"
+    # shellcheck disable=SC2001  # nested braces make parameter expansion awkward
     content=$(echo "$content" | sed "s|{{${key}}}|${val}|g")
     shift 2
   done
@@ -489,7 +490,7 @@ setup_repo() {
 
   if [[ "$stack" == "node" ]]; then
     local node_version pkg_manager test_framework
-    local cov_lines cov_functions cov_branches build_output
+    local _cov_lines _cov_functions _cov_branches build_output
 
     node_version=$(prompt_or_default "Node version" "22")
     pkg_manager=$(detect_pkg_manager)
@@ -506,9 +507,10 @@ setup_repo() {
 
     local publish_cmd="npm publish --provenance --access public"
 
-    cov_lines=$(prompt_or_default "Coverage threshold: lines" "40")
-    cov_functions=$(prompt_or_default "Coverage threshold: functions" "80")
-    cov_branches=$(prompt_or_default "Coverage threshold: branches" "75")
+    # TODO: wire coverage thresholds into CI template expansion
+    _cov_lines=$(prompt_or_default "Coverage threshold: lines" "40")
+    _cov_functions=$(prompt_or_default "Coverage threshold: functions" "80")
+    _cov_branches=$(prompt_or_default "Coverage threshold: branches" "75")
 
     local enable_rulesets
     enable_rulesets=$(prompt_or_default "Create branch rulesets" "yes")
