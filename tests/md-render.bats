@@ -106,6 +106,46 @@ teardown() {
 }
 
 # ============================================================
+# Mermaid
+# ============================================================
+
+@test "md-render renders mermaid blocks as pre.mermaid" {
+    cat > "$TEST_TMPDIR/mermaid.md" <<'MARKDOWN'
+# Diagram
+
+```mermaid
+graph TD
+    A --> B
+```
+MARKDOWN
+    run "$MD_RENDER" "$TEST_TMPDIR/mermaid.md" --no-open -o "$TEST_TMPDIR/mermaid.html"
+    assert_success
+    run grep 'class="mermaid"' "$TEST_TMPDIR/mermaid.html"
+    assert_success
+}
+
+@test "md-render includes mermaid CDN script" {
+    run "$MD_RENDER" "$TEST_TMPDIR/test.md" --no-open -o "$TEST_TMPDIR/mermaid-cdn.html"
+    assert_success
+    run grep 'mermaid.min.js' "$TEST_TMPDIR/mermaid-cdn.html"
+    assert_success
+}
+
+@test "md-render mermaid blocks are not syntax-highlighted" {
+    cat > "$TEST_TMPDIR/mermaid2.md" <<'MARKDOWN'
+```mermaid
+graph TD
+    A --> B
+```
+MARKDOWN
+    run "$MD_RENDER" "$TEST_TMPDIR/mermaid2.md" --no-open -o "$TEST_TMPDIR/mermaid2.html"
+    assert_success
+    run grep 'hljs' "$TEST_TMPDIR/mermaid2.html"
+    # hljs classes should only be in the CSS, not wrapping the mermaid content
+    refute_output --partial 'language-mermaid'
+}
+
+# ============================================================
 # Output file
 # ============================================================
 
