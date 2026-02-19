@@ -308,6 +308,56 @@
       font-style: italic;
     }
 
+    /* Inline TOC (in content) — collapsible */
+    .content nav.toc {
+      background: var(--code-bg-color);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+    .toc-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1.25rem;
+      cursor: pointer;
+      user-select: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--heading-color);
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .toc-header:hover { color: var(--link-color); }
+    .toc-chevron {
+      transition: transform 0.2s;
+      font-size: 0.75rem;
+      opacity: 0.5;
+    }
+    .toc-chevron.open { transform: rotate(180deg); }
+    .toc-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+    .toc-body.open { max-height: 2000px; }
+    .toc-body ul {
+      list-style: none;
+      padding: 0 1.25rem 0.75rem;
+      margin: 0;
+    }
+    .toc-body li { margin: 0.2rem 0; }
+    .toc-body a {
+      color: var(--text-color);
+      text-decoration: none;
+      font-size: 0.85rem;
+      opacity: 0.6;
+      transition: opacity 0.15s, color 0.15s;
+    }
+    .toc-body a:hover { opacity: 1; color: var(--link-color); }
+    .toc-body ul ul { padding-left: 1rem; padding-bottom: 0; }
+
     /* Strikethrough */
     del { opacity: 0.5; }
 
@@ -393,6 +443,10 @@
     }
     document.querySelectorAll('.toc-panel a').forEach(function(a) {
       a.addEventListener('click', function() { toggleToc(); });
+    });
+    document.querySelectorAll('.content nav.toc').forEach(function(toc) {
+      var inner = toc.innerHTML;
+      toc.innerHTML = '<div class="toc-header" onclick="this.nextElementSibling.classList.toggle(\'open\');this.querySelector(\'.toc-chevron\').classList.toggle(\'open\')">Table of Contents <span class="toc-chevron">&#9660;</span></div><div class="toc-body">' + inner + '</div>';
     });
     document.querySelectorAll('pre').forEach(function(pre) {
       if (pre.classList.contains('mermaid')) return;
