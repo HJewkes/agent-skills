@@ -89,7 +89,7 @@ teardown() {
     assert_success
     run grep "bg-color" "$TEST_TMPDIR/styled.html"
     assert_success
-    run grep "#0d1117" "$TEST_TMPDIR/styled.html"
+    run grep "#0c0e14" "$TEST_TMPDIR/styled.html"
     assert_success
 }
 
