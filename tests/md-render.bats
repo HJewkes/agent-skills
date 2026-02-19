@@ -146,6 +146,75 @@ MARKDOWN
 }
 
 # ============================================================
+# Extended markdown features
+# ============================================================
+
+@test "md-render renders task list checkboxes" {
+    cat > "$TEST_TMPDIR/tasks.md" <<'MARKDOWN'
+- [x] Done
+- [ ] Not done
+MARKDOWN
+    run "$MD_RENDER" "$TEST_TMPDIR/tasks.md" --no-open -o "$TEST_TMPDIR/tasks.html"
+    assert_success
+    run grep 'type="checkbox"' "$TEST_TMPDIR/tasks.html"
+    assert_success
+}
+
+@test "md-render renders footnotes" {
+    cat > "$TEST_TMPDIR/footnotes.md" <<'MARKDOWN'
+Text with a footnote[^1].
+
+[^1]: This is the footnote content.
+MARKDOWN
+    run "$MD_RENDER" "$TEST_TMPDIR/footnotes.md" --no-open -o "$TEST_TMPDIR/footnotes.html"
+    assert_success
+    run grep 'class="footnote-ref"' "$TEST_TMPDIR/footnotes.html"
+    assert_success
+}
+
+@test "md-render renders highlighted text" {
+    cat > "$TEST_TMPDIR/mark.md" <<'MARKDOWN'
+This is ==highlighted== text.
+MARKDOWN
+    run "$MD_RENDER" "$TEST_TMPDIR/mark.md" --no-open -o "$TEST_TMPDIR/mark.html"
+    assert_success
+    run grep '<mark>' "$TEST_TMPDIR/mark.html"
+    assert_success
+}
+
+@test "md-render renders emoji shortcodes" {
+    cat > "$TEST_TMPDIR/emoji.md" <<'MARKDOWN'
+Hello :rocket: world
+MARKDOWN
+    run "$MD_RENDER" "$TEST_TMPDIR/emoji.md" --no-open -o "$TEST_TMPDIR/emoji.html"
+    assert_success
+    # Rendered content should contain the actual emoji character
+    run grep '🚀' "$TEST_TMPDIR/emoji.html"
+    assert_success
+}
+
+@test "md-render embeds raw markdown for copy button" {
+    run "$MD_RENDER" "$TEST_TMPDIR/test.md" --no-open -o "$TEST_TMPDIR/raw.html"
+    assert_success
+    run grep 'id="raw-markdown"' "$TEST_TMPDIR/raw.html"
+    assert_success
+}
+
+@test "md-render includes copy button script" {
+    run "$MD_RENDER" "$TEST_TMPDIR/test.md" --no-open -o "$TEST_TMPDIR/copy.html"
+    assert_success
+    run grep 'copy-btn' "$TEST_TMPDIR/copy.html"
+    assert_success
+}
+
+@test "md-render renders collapsible inline TOC" {
+    run "$MD_RENDER" "$TEST_TMPDIR/test.md" --no-open -o "$TEST_TMPDIR/toc2.html"
+    assert_success
+    run grep 'toc-header' "$TEST_TMPDIR/toc2.html"
+    assert_success
+}
+
+# ============================================================
 # Output file
 # ============================================================
 
