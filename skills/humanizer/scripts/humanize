@@ -59,7 +59,7 @@ count_replace() {
   local label="$1" pattern="$2" replacement="$3"
   local before after count
   before=$(echo "$TEXT" | grep -c "$pattern" 2>/dev/null || true)
-  TEXT=$(echo "$TEXT" | sed "s/$pattern/$replacement/g")
+  TEXT="${TEXT//$pattern/$replacement}"
   after=$(echo "$TEXT" | grep -c "$pattern" 2>/dev/null || true)
   count=$((before - after))
   if [[ $count -gt 0 ]]; then
@@ -79,10 +79,12 @@ count_replace "en dashes" $'\xe2\x80\x93' '-'
 
 # Smart double quotes -> straight
 count_replace "smart double quotes" $'\xe2\x80\x9c' '"'
+# shellcheck disable=SC2001
 TEXT=$(echo "$TEXT" | sed "s/$(printf '\xe2\x80\x9d')/\"/g")
 
 # Smart single quotes -> straight
 count_replace "smart single quotes" $'\xe2\x80\x98' "'"
+# shellcheck disable=SC2001
 TEXT=$(echo "$TEXT" | sed "s/$(printf '\xe2\x80\x99')/'/g")
 
 # Ellipsis -> three periods
@@ -130,7 +132,7 @@ fi
 FLAG_COUNT=0
 FLAG_LINES=()
 
-while IFS=$'\t' read -r pattern category note; do
+while IFS=$'\t' read -r pattern category _note; do
   # Skip comments and empty lines
   [[ -z "$pattern" || "$pattern" == \#* ]] && continue
 
