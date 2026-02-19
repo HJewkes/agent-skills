@@ -77,8 +77,6 @@ teardown() {
 }
 
 @test "md-render reads from stdin with -" {
-    # stdin via - is caught by arg parser as unknown option; skip until script is fixed
-    skip "stdin dash argument blocked by arg parser bug"
     run bash -c "echo '# Stdin Test' | '$MD_RENDER' - --no-open -o '$TEST_TMPDIR/stdin-out.html'"
     assert_success
     [ -f "$TEST_TMPDIR/stdin-out.html" ]

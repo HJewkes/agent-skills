@@ -48,6 +48,7 @@ while [[ $# -gt 0 ]]; do
     --no-open) NO_OPEN=true; shift ;;
     --config|-c) CONFIG_PATH="$2"; shift 2 ;;
     --help|-h) usage; exit 0 ;;
+    -) INPUT_FILE="-"; shift ;;
     -*) die "Unknown option: $1" ;;
     *)
       [[ -z "$INPUT_FILE" ]] || die "Unexpected argument: $1"
