@@ -18,159 +18,285 @@
       line-height: var(--line-height);
       color: var(--text-color);
       background: var(--bg-color);
-      display: flex;
       min-height: 100vh;
     }
 
-    /* TOC sidebar */
-    .toc-sidebar {
-      position: sticky;
+    /* TOC panel — collapsible overlay, hidden by default */
+    .toc-panel {
+      position: fixed;
       top: 0;
-      align-self: flex-start;
-      width: 260px;
-      min-width: 260px;
+      left: 0;
+      width: 300px;
       height: 100vh;
-      overflow-y: auto;
-      padding: 2rem 1rem;
       background: var(--toc-bg-color);
       border-right: 1px solid var(--border-color);
+      transform: translateX(-100%);
+      transition: transform 0.25s ease;
+      z-index: 50;
+      overflow-y: auto;
+      padding: 3.5rem 1.25rem 2rem;
+      box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
     }
+    .toc-panel.open { transform: translateX(0); }
 
-    .toc-sidebar nav ul { list-style: none; }
-    .toc-sidebar nav li { margin: 0.3rem 0; }
-    .toc-sidebar nav a {
+    .toc-panel nav ul { list-style: none; }
+    .toc-panel nav li { margin: 0.25rem 0; }
+    .toc-panel nav a {
       color: var(--text-color);
       text-decoration: none;
-      font-size: 0.875rem;
-      opacity: 0.7;
-      transition: opacity 0.2s;
+      font-size: 0.85rem;
+      opacity: 0.6;
+      transition: opacity 0.15s, color 0.15s;
+      display: block;
+      padding: 0.15rem 0;
     }
-    .toc-sidebar nav a:hover { opacity: 1; color: var(--link-color); }
-    .toc-sidebar nav ul ul { padding-left: 1rem; }
+    .toc-panel nav a:hover { opacity: 1; color: var(--link-color); }
+    .toc-panel nav ul ul { padding-left: 1rem; }
 
-    /* Toggle button for mobile */
+    /* TOC toggle button — always visible */
     .toc-toggle {
-      display: none;
       position: fixed;
       top: 1rem;
       left: 1rem;
       z-index: 100;
-      background: var(--toc-bg-color);
+      background: var(--code-bg-color);
       border: 1px solid var(--border-color);
       color: var(--text-color);
-      padding: 0.5rem 0.75rem;
+      padding: 0.4rem 0.7rem;
       border-radius: 6px;
       cursor: pointer;
-      font-size: 1rem;
+      font-size: 0.85rem;
+      opacity: 0.7;
+      transition: opacity 0.15s, background 0.15s;
+      letter-spacing: 0.02em;
     }
+    .toc-toggle:hover { opacity: 1; background: var(--border-color); }
+
+    /* Backdrop for closing TOC */
+    .toc-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      background: rgba(0, 0, 0, 0.3);
+    }
+    .toc-backdrop.open { display: block; }
 
     /* Main content */
     .content {
-      flex: 1;
       max-width: var(--max-width);
       margin: 0 auto;
-      padding: 3rem 2rem;
+      padding: 3rem 2.5rem;
     }
 
     /* Typography */
     h1, h2, h3, h4, h5, h6 {
       color: var(--heading-color);
-      margin-top: 2rem;
+      margin-top: 2.5rem;
       margin-bottom: 0.75rem;
-      line-height: 1.3;
+      line-height: 1.25;
+      font-weight: 600;
+      letter-spacing: -0.01em;
     }
-    h1 { font-size: 2rem; margin-top: 0; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color); }
-    h2 { font-size: 1.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid var(--border-color); }
-    h3 { font-size: 1.25rem; }
+    h1 {
+      font-size: 2.25rem;
+      margin-top: 0;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border-color);
+      letter-spacing: -0.025em;
+    }
+    h2 {
+      font-size: 1.6rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid var(--border-color);
+      letter-spacing: -0.02em;
+    }
+    h3 { font-size: 1.3rem; }
+    h4 { font-size: 1.1rem; }
+    h5 { font-size: 1rem; opacity: 0.9; }
+    h6 { font-size: 0.9rem; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.04em; }
 
     p { margin-bottom: 1rem; }
 
-    a { color: var(--link-color); text-decoration: none; }
-    a:hover { text-decoration: underline; }
+    a { color: var(--link-color); text-decoration: none; transition: color 0.15s; }
+    a:hover { color: var(--accent-color); text-decoration: underline; }
+
+    strong { color: var(--heading-color); }
 
     /* Heading anchors */
     .heading-anchor {
       color: var(--link-color);
       opacity: 0;
       margin-left: 0.3rem;
-      font-size: 0.85em;
-      transition: opacity 0.2s;
+      font-size: 0.8em;
+      transition: opacity 0.15s;
       text-decoration: none;
     }
     h1:hover .heading-anchor,
     h2:hover .heading-anchor,
     h3:hover .heading-anchor,
-    h4:hover .heading-anchor { opacity: 0.6; }
+    h4:hover .heading-anchor,
+    h5:hover .heading-anchor,
+    h6:hover .heading-anchor { opacity: 0.4; }
     .heading-anchor:hover { opacity: 1 !important; }
 
     /* Code */
     code {
       font-family: var(--code-font-family);
       background: var(--code-bg-color);
-      padding: 0.15rem 0.4rem;
-      border-radius: 4px;
-      font-size: 0.9em;
+      padding: 0.15rem 0.45rem;
+      border-radius: 5px;
+      font-size: 0.88em;
+      border: 1px solid var(--border-color);
     }
     pre {
       background: var(--code-bg-color);
       border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 1rem 1.25rem;
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
       overflow-x: auto;
-      margin-bottom: 1rem;
+      margin-bottom: 1.25rem;
     }
     pre code {
       background: none;
       padding: 0;
       border-radius: 0;
-      font-size: 0.875rem;
-      line-height: 1.6;
+      border: none;
+      font-size: 0.85rem;
+      line-height: 1.65;
     }
 
     /* Lists */
     ul, ol { margin-bottom: 1rem; padding-left: 1.5rem; }
-    li { margin-bottom: 0.3rem; }
+    li { margin-bottom: 0.35rem; }
+    li > ul, li > ol { margin-top: 0.35rem; margin-bottom: 0; }
+
+    /* Task list checkboxes */
+    .task-list-item {
+      list-style: none;
+      margin-left: -1.5rem;
+      padding-left: 0;
+    }
+    .task-list-item input[type="checkbox"] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 1.1em;
+      height: 1.1em;
+      border: 2px solid var(--border-color);
+      border-radius: 4px;
+      background: transparent;
+      vertical-align: -0.15em;
+      margin-right: 0.5em;
+      cursor: default;
+      position: relative;
+    }
+    .task-list-item input[type="checkbox"]:checked {
+      background: var(--link-color);
+      border-color: var(--link-color);
+    }
+    .task-list-item input[type="checkbox"]:checked::after {
+      content: '';
+      position: absolute;
+      left: 3px;
+      top: 0px;
+      width: 5px;
+      height: 9px;
+      border: solid var(--bg-color);
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
 
     /* Blockquote */
     blockquote {
-      border-left: 3px solid var(--link-color);
-      margin: 1rem 0;
-      padding: 0.5rem 1rem;
+      border-left: 3px solid var(--accent-color);
+      margin: 1.25rem 0;
+      padding: 0.75rem 1.25rem;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 0 8px 8px 0;
       color: var(--text-color);
-      opacity: 0.85;
+      opacity: 0.9;
     }
+    blockquote p:last-child { margin-bottom: 0; }
 
     /* Tables */
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 1rem;
+      margin-bottom: 1.25rem;
+      font-size: 0.92em;
     }
     th, td {
       border: 1px solid var(--border-color);
-      padding: 0.5rem 0.75rem;
+      padding: 0.6rem 0.85rem;
       text-align: left;
     }
-    th { background: var(--code-bg-color); color: var(--heading-color); }
+    th {
+      background: var(--code-bg-color);
+      color: var(--heading-color);
+      font-weight: 600;
+      font-size: 0.85em;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    tr:hover td { background: rgba(255, 255, 255, 0.015); }
 
     /* Horizontal rule */
-    hr { border: none; border-top: 1px solid var(--border-color); margin: 2rem 0; }
+    hr {
+      border: none;
+      border-top: 1px solid var(--border-color);
+      margin: 2.5rem 0;
+    }
 
     /* Images */
-    img { max-width: 100%; border-radius: 8px; }
+    img {
+      max-width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+    }
+    /* Hide broken images gracefully */
+    img[alt]::after {
+      content: attr(alt);
+      display: block;
+      padding: 1rem;
+      color: var(--text-color);
+      opacity: 0.5;
+      font-style: italic;
+    }
+
+    /* Strikethrough */
+    del { opacity: 0.5; }
+
+    /* Footnotes */
+    .footnotes-sep { margin-top: 3rem; }
+    .footnotes { font-size: 0.88em; opacity: 0.85; }
+    .footnotes ol { padding-left: 1.5rem; }
+    .footnotes li { margin-bottom: 0.5rem; }
+    .footnote-ref a {
+      color: var(--accent-color);
+      font-size: 0.75em;
+      vertical-align: super;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .footnote-ref a:hover { text-decoration: underline; }
+    .footnote-backref { color: var(--accent-color); text-decoration: none; font-size: 0.85em; }
+
+    /* Highlighted text (==mark==) */
+    mark {
+      background: rgba(157, 124, 216, 0.2);
+      color: var(--heading-color);
+      padding: 0.1rem 0.3rem;
+      border-radius: 3px;
+    }
+
+    /* Subscript / Superscript */
+    sub, sup { font-size: 0.75em; }
+    sup { vertical-align: super; }
+    sub { vertical-align: sub; }
 
     /* Responsive */
     @media (max-width: 768px) {
-      .toc-sidebar {
-        position: fixed;
-        left: -280px;
-        z-index: 50;
-        transition: left 0.3s;
-        box-shadow: 2px 0 8px rgba(0,0,0,0.3);
-      }
-      .toc-sidebar.open { left: 0; }
-      .toc-toggle { display: block; }
-      .content { padding: 3rem 1.5rem 2rem; }
+      .content { padding: 3rem 1.25rem 2rem; }
     }
 
     /* Highlight.js GitHub Dark (inline) */
@@ -194,13 +320,23 @@
   </style>
 </head>
 <body>
-  <button class="toc-toggle" onclick="document.querySelector('.toc-sidebar').classList.toggle('open')" aria-label="Toggle table of contents">&#9776; TOC</button>
-  <aside class="toc-sidebar">
+  <button class="toc-toggle" onclick="toggleToc()" aria-label="Toggle table of contents">&#9776; Contents</button>
+  <div class="toc-backdrop" onclick="toggleToc()"></div>
+  <aside class="toc-panel">
     {{toc}}
   </aside>
   <main class="content">
     {{content}}
   </main>
+  <script>
+    function toggleToc() {
+      document.querySelector('.toc-panel').classList.toggle('open');
+      document.querySelector('.toc-backdrop').classList.toggle('open');
+    }
+    document.querySelectorAll('.toc-panel a').forEach(function(a) {
+      a.addEventListener('click', function() { toggleToc(); });
+    });
+  </script>
   {{mermaid}}
 </body>
 </html>

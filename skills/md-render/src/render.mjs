@@ -6,6 +6,13 @@ import markdownit from 'markdown-it';
 import anchor from 'markdown-it-anchor';
 import tocPlugin from 'markdown-it-toc-done-right';
 import hljs from 'highlight.js';
+import taskLists from 'markdown-it-task-lists';
+import footnote from 'markdown-it-footnote';
+import mark from 'markdown-it-mark';
+import sub from 'markdown-it-sub';
+import sup from 'markdown-it-sup';
+import attrs from 'markdown-it-attrs';
+import { full as emoji } from 'markdown-it-emoji';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SKILL_DIR = resolve(__dirname, '..');
@@ -47,6 +54,14 @@ function render(markdown, config) {
         return '';
       },
   });
+
+  md.use(taskLists, { enabled: false, label: true });
+  md.use(footnote);
+  md.use(mark);
+  md.use(sub);
+  md.use(sup);
+  md.use(attrs);
+  md.use(emoji);
 
   if (config.features.headingAnchors) {
     md.use(anchor, {
