@@ -114,9 +114,12 @@ function main() {
     ? '<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>\n  <script>mermaid.initialize({ startOnLoad: true, theme: "dark" });</script>'
     : '';
 
+  const rawMarkdown = markdown.replace(/<\/script>/gi, '<\\/script>');
+
   const html = template
     .replace('{{title}}', title)
     .replace('{{css-vars}}', cssVars)
+    .replace('{{raw-markdown}}', rawMarkdown)
     .replace('{{toc}}', tocHtml)
     .replace('{{content}}', contentHtml)
     .replace('{{mermaid}}', mermaidScript);

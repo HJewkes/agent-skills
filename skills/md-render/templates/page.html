@@ -156,6 +156,7 @@
       padding: 1.25rem 1.5rem;
       overflow-x: auto;
       margin-bottom: 1.25rem;
+      position: relative;
     }
     pre code {
       background: none;
@@ -165,6 +166,50 @@
       font-size: 0.85rem;
       line-height: 1.65;
     }
+
+    /* Copy full markdown button */
+    .copy-md-btn {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 100;
+      background: var(--code-bg-color);
+      border: 1px solid var(--border-color);
+      color: var(--text-color);
+      padding: 0.4rem 0.7rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-family: var(--font-family);
+      opacity: 0.7;
+      transition: opacity 0.15s, background 0.15s;
+      letter-spacing: 0.02em;
+    }
+    .copy-md-btn:hover { opacity: 1; background: var(--border-color); }
+    .copy-md-btn.copied { opacity: 1; background: #2ea043; color: #fff; }
+
+    /* Copy button on code blocks */
+    .copy-btn {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      background: var(--border-color);
+      border: none;
+      color: var(--text-color);
+      padding: 0.25rem 0.55rem;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-family: var(--font-family);
+      opacity: 0;
+      transition: opacity 0.15s, background 0.15s;
+      letter-spacing: 0.02em;
+    }
+    pre:hover .copy-btn { opacity: 0.7; }
+    .copy-btn:hover { opacity: 1 !important; background: var(--accent-color); }
+    .copy-btn.copied { opacity: 1; background: #2ea043; }
+    /* Hide copy button on mermaid diagrams */
+    pre.mermaid .copy-btn { display: none; }
 
     /* Lists */
     ul, ol { margin-bottom: 1rem; padding-left: 1.5rem; }
@@ -321,6 +366,8 @@
 </head>
 <body>
   <button class="toc-toggle" onclick="toggleToc()" aria-label="Toggle table of contents">&#9776; Contents</button>
+  <button class="copy-md-btn" onclick="copyMarkdown(this)" aria-label="Copy markdown source">&#128203; Copy MD</button>
+  <script id="raw-markdown" type="text/plain">{{raw-markdown}}</script>
   <div class="toc-backdrop" onclick="toggleToc()"></div>
   <aside class="toc-panel">
     {{toc}}
@@ -329,12 +376,42 @@
     {{content}}
   </main>
   <script>
+    function copyMarkdown(btn) {
+      var raw = document.getElementById('raw-markdown').textContent;
+      navigator.clipboard.writeText(raw).then(function() {
+        btn.textContent = '\u2705 Copied!';
+        btn.classList.add('copied');
+        setTimeout(function() {
+          btn.textContent = '\uD83D\uDCCB Copy MD';
+          btn.classList.remove('copied');
+        }, 1500);
+      });
+    }
     function toggleToc() {
       document.querySelector('.toc-panel').classList.toggle('open');
       document.querySelector('.toc-backdrop').classList.toggle('open');
     }
     document.querySelectorAll('.toc-panel a').forEach(function(a) {
       a.addEventListener('click', function() { toggleToc(); });
+    });
+    document.querySelectorAll('pre').forEach(function(pre) {
+      if (pre.classList.contains('mermaid')) return;
+      var btn = document.createElement('button');
+      btn.className = 'copy-btn';
+      btn.textContent = 'Copy';
+      btn.addEventListener('click', function() {
+        var code = pre.querySelector('code');
+        var text = code ? code.textContent : pre.textContent;
+        navigator.clipboard.writeText(text).then(function() {
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(function() {
+            btn.textContent = 'Copy';
+            btn.classList.remove('copied');
+          }, 1500);
+        });
+      });
+      pre.appendChild(btn);
     });
   </script>
   {{mermaid}}
