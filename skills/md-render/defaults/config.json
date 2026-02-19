@@ -1,0 +1,22 @@
+{
+  "theme": {
+    "fontFamily": "Inter, system-ui, sans-serif",
+    "codeFontFamily": "JetBrains Mono, Fira Code, monospace",
+    "fontSize": "16px",
+    "lineHeight": "1.7",
+    "maxWidth": "860px",
+    "bgColor": "#0d1117",
+    "textColor": "#e6edf3",
+    "headingColor": "#f0f6fc",
+    "linkColor": "#58a6ff",
+    "codeBgColor": "#161b22",
+    "borderColor": "#30363d",
+    "tocBgColor": "#161b22"
+  },
+  "features": {
+    "toc": true,
+    "syntaxHighlight": true,
+    "headingAnchors": true,
+    "openInBrowser": true
+  }
+}
