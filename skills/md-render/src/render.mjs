@@ -35,16 +35,17 @@ function render(markdown, config) {
     html: true,
     linkify: true,
     typographer: false,
-    highlight: config.features.syntaxHighlight
-      ? (str, lang) => {
-          if (lang && hljs.getLanguage(lang)) {
-            try {
-              return hljs.highlight(str, { language: lang }).value;
-            } catch { /* fall through */ }
-          }
-          return '';
+    highlight: (str, lang) => {
+        if (lang === 'mermaid' && config.features.mermaid) {
+          return `<div class="mermaid">${str}</div>`;
         }
-      : undefined,
+        if (config.features.syntaxHighlight && lang && hljs.getLanguage(lang)) {
+          try {
+            return hljs.highlight(str, { language: lang }).value;
+          } catch { /* fall through */ }
+        }
+        return '';
+      },
   });
 
   if (config.features.headingAnchors) {
@@ -68,7 +69,14 @@ function render(markdown, config) {
     markdown = '${toc}\n\n' + markdown;
   }
 
-  const contentHtml = md.render(markdown);
+  let contentHtml = md.render(markdown);
+
+  if (config.features.mermaid) {
+    contentHtml = contentHtml.replace(
+      /<pre><code[^>]*><div class="mermaid">([\s\S]*?)<\/div>\s*<\/code><\/pre>/g,
+      '<pre class="mermaid">$1</pre>'
+    );
+  }
 
   const titleMatch = markdown.match(/^#\s+(.+)$/m);
   const title = titleMatch ? titleMatch[1] : 'Markdown Preview';
@@ -87,11 +95,16 @@ function main() {
 
   const template = readFileSync(resolve(SKILL_DIR, 'templates/page.html'), 'utf8');
 
+  const mermaidScript = config.features.mermaid
+    ? '<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>\n  <script>mermaid.initialize({ startOnLoad: true, theme: "dark" });</script>'
+    : '';
+
   const html = template
     .replace('{{title}}', title)
     .replace('{{css-vars}}', cssVars)
     .replace('{{toc}}', tocHtml)
-    .replace('{{content}}', contentHtml);
+    .replace('{{content}}', contentHtml)
+    .replace('{{mermaid}}', mermaidScript);
 
   process.stdout.write(html);
 }

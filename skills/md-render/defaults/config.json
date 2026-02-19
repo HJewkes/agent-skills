@@ -17,6 +17,7 @@
     "toc": true,
     "syntaxHighlight": true,
     "headingAnchors": true,
-    "openInBrowser": true
+    "openInBrowser": true,
+    "mermaid": true
   }
 }
