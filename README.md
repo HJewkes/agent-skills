@@ -1,6 +1,6 @@
 # agent-skills
 
-Curated agent skills for software development workflows. 27 skills, 2 agents, and config examples — ready to install.
+Curated agent skills for software development workflows. 34 skills, 2 agents, and config examples — ready to install.
 
 ## Install
 
@@ -65,11 +65,27 @@ npx skills update
 | `feature-agents` | Deep codebase exploration for feature development | Original |
 | `frontend-design` | Production-grade frontend interfaces with high design quality | Original |
 | `using-git-worktrees` | Isolated git worktrees for feature work | Fork of obra/superpowers |
+| `git-workflow` | Unified git CLI — status, commit, split, stack, worktree, clean | Original |
 | `github-pr` | GitHub PR creation and review workflow | Original |
 | `managing-github-issues` | Issue triage, creation, and status management | Original |
 | `vitest` | Vitest testing — mocking, coverage, fixtures | Fork of antfu/skills |
 | `tailwind` | Tailwind CSS v4 with shadcn/ui patterns | Original |
 | `sdk-verify` | Verify Claude Agent SDK applications | Original |
+
+### Tools
+
+| Skill | Description | Origin |
+|-------|-------------|--------|
+| `md-render` | Render markdown as dark-mode HTML in the browser — mermaid, footnotes, emoji, copy buttons | Original |
+| `humanizer` | Clean AI-generated text — normalize characters, flag overused phrases | Original |
+| `repo-ci` | CI audit and scaffolding CLI | Original |
+
+### CI/CD
+
+| Skill | Description | Origin |
+|-------|-------------|--------|
+| `buildkite` | Buildkite CI/CD pipeline management | Original |
+| `atlassian` | Atlassian (Jira/Confluence) integration | Original |
 
 ### Meta
 
@@ -80,6 +96,7 @@ npx skills update
 | `self-improve` | Capture reusable insights from sessions | Original |
 | `context-audit` | Audit context window and identify optimization targets | Original |
 | `research` | Research topics, compare options, gather information | Original |
+| `brain` | Knowledge management and session memory | Original |
 
 ### Specialized
 
