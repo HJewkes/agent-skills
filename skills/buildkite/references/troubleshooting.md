@@ -1,6 +1,6 @@
 # Buildkite Skill — Troubleshooting Reference
 
-Common failures with the `bk` CLI, with symptom, cause, and fix.
+Common failures with the `buildkite` CLI, with symptom, cause, and fix.
 
 ---
 
@@ -8,7 +8,7 @@ Common failures with the `bk` CLI, with symptom, cause, and fix.
 
 ### 401 Unauthorized
 
-**Symptom:** `bk` commands fail with `401 Unauthorized` or `bk whoami` returns an auth error.
+**Symptom:** `buildkite` commands fail with `401 Unauthorized` or `buildkite whoami` returns an auth error.
 
 **Causes:**
 - API token expired or revoked
@@ -20,7 +20,7 @@ Common failures with the `bk` CLI, with symptom, cause, and fix.
 2. Ensure the token has `read_builds`, `write_builds`, `read_pipelines` scopes at minimum
 3. Re-run setup:
    ```
-   skills/specialized/buildkite/scripts/setup
+   skills/buildkite/scripts/setup
    ```
 
 ---
@@ -42,14 +42,15 @@ Common failures with the `bk` CLI, with symptom, cause, and fix.
 
 ## Configuration
 
-### `bk` command not found
+### `buildkite` wrapper or `bk` CLI not found
 
-**Symptom:** Shell returns `command not found: bk` or similar.
+**Symptom:** Shell returns `command not found: buildkite` or `command not found: bk`.
 
-**Cause:** The Buildkite CLI is not installed or not in PATH.
+**Cause:** The `buildkite` wrapper isn't on PATH, or the underlying `bk` CLI is not installed.
 
 **Fix:**
 ```bash
+# Install the bk CLI via Homebrew
 brew tap buildkite/buildkite && brew install buildkite/buildkite/bk
 ```
 
@@ -57,9 +58,9 @@ Or download a binary from <https://github.com/buildkite/cli/releases>.
 
 ---
 
-### `bk` commands fail with "not configured"
+### `buildkite` commands fail with "not configured"
 
-**Symptom:** `bk` commands exit with a configuration error or prompt for setup.
+**Symptom:** `buildkite` commands exit with a configuration error or prompt for setup.
 
 **Cause:** `bk configure` was never run, or the config file is missing/corrupted.
 
@@ -69,21 +70,20 @@ Or download a binary from <https://github.com/buildkite/cli/releases>.
 bk configure
 
 # Or run the full skill setup
-skills/specialized/buildkite/scripts/setup
+skills/buildkite/scripts/setup
 ```
 
 ---
 
 ### `~/.buildkite-env` not found
 
-**Symptom:** The skill's convenience scripts can't find the org slug.
+**Symptom:** First-time use of the `buildkite` wrapper triggers interactive setup.
 
-**Cause:** The env file doesn't exist or was deleted.
+**Cause:** The env file doesn't exist — this is expected on first run. The wrapper auto-detects and launches `scripts/setup`.
 
-**Fix:**
+**Fix:** If setup was interrupted, re-run manually:
 ```bash
-# Re-run setup
-skills/specialized/buildkite/scripts/setup
+skills/buildkite/scripts/setup
 
 # Or create manually
 echo "BUILDKITE_ORG=your-org-slug" > ~/.buildkite-env
@@ -96,13 +96,13 @@ chmod 600 ~/.buildkite-env
 
 ### 429 Too Many Requests
 
-**Symptom:** `bk` commands or `bk api` calls return `429 Too Many Requests`.
+**Symptom:** `buildkite` commands or `buildkite api` calls return `429 Too Many Requests`.
 
 **Cause:** Buildkite enforces API rate limits (varies by plan).
 
 **Fix:**
 - Wait 60 seconds before retrying
-- Reduce request frequency — avoid rapid sequential `bk api` calls
+- Reduce request frequency — avoid rapid sequential `buildkite api` calls
 - Use pagination to limit result sets
 
 ---
@@ -111,7 +111,7 @@ chmod 600 ~/.buildkite-env
 
 ### Pipeline not found
 
-**Symptom:** `bk build list --pipeline SLUG` returns a "not found" error.
+**Symptom:** `buildkite build list --pipeline SLUG` returns a "not found" error.
 
 **Causes:**
 - Pipeline slug is wrong (check for typos)
@@ -121,17 +121,17 @@ chmod 600 ~/.buildkite-env
 **Fix:**
 ```bash
 # List all pipelines to find the correct slug
-bk pipeline list
+buildkite pipeline list
 
 # Verify the current org
-bk whoami
+buildkite whoami
 ```
 
 ---
 
 ### Build number not found
 
-**Symptom:** `bk build view BUILD_NUMBER --pipeline SLUG` returns "not found".
+**Symptom:** `buildkite build view BUILD_NUMBER --pipeline SLUG` returns "not found".
 
 **Causes:**
 - Build number is wrong
@@ -140,7 +140,7 @@ bk whoami
 **Fix:**
 ```bash
 # List recent builds to find the correct number
-bk build list --pipeline SLUG
+buildkite build list --pipeline SLUG
 ```
 
 ---
@@ -149,17 +149,17 @@ bk build list --pipeline SLUG
 
 ```bash
 # Test authentication
-bk whoami
+buildkite whoami
 
 # Check CLI version
-bk version
+buildkite version
 
 # List pipelines (verifies auth + org access)
-bk pipeline list
+buildkite pipeline list
 
 # Test API access directly
-bk api /v2/organizations/ORG/pipelines | jq 'length'
+buildkite api /v2/organizations/ORG/pipelines | jq 'length'
 
 # Re-run full setup
-skills/specialized/buildkite/scripts/setup
+skills/buildkite/scripts/setup
 ```

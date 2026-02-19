@@ -5,15 +5,7 @@ Load this when you need flag details or examples beyond the SKILL.md overview.
 
 ## Authentication
 
-All subcommands require `~/.atlassian-env` with:
-
-```
-ATLASSIAN_DOMAIN=yoursite
-ATLASSIAN_EMAIL=you@example.com
-ATLASSIAN_API_TOKEN=your-api-token
-```
-
-Help flags (`--help`) work without authentication. Any other subcommand exits with an error if the file is missing or any variable is unset.
+The `confluence` wrapper auto-detects first run and launches `scripts/setup` to configure `~/.atlassian-env`. Help flags (`--help`) work without authentication.
 
 ## Exit Codes
 

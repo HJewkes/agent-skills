@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_FILE="${HOME}/.buildkite-env"
+
+# --- Help passthrough (no setup needed) ---
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  exec bk "$@"
+fi
+
+# --- Ensure setup ---
+
+if [[ ! -f "$ENV_FILE" ]]; then
+  echo "First run detected — launching setup..." >&2
+  "$SCRIPT_DIR/setup"
+  [[ -f "$ENV_FILE" ]] || { echo "Setup did not complete. Run: $SCRIPT_DIR/setup" >&2; exit 1; }
+fi
+
+# shellcheck source=/dev/null
+source "$ENV_FILE"
+
+exec bk "$@"

@@ -65,7 +65,7 @@ npx skills update
 | `feature-agents` | Deep codebase exploration for feature development | Original |
 | `frontend-design` | Production-grade frontend interfaces with high design quality | Original |
 | `using-git-worktrees` | Isolated git worktrees for feature work | Fork of obra/superpowers |
-| `git-workflow` | Unified git CLI — status, commit, split, stack, worktree, clean | Original |
+| [`git-workflow`](docs/git-workflow.md) | Unified git CLI — status, commit, split, stack, worktree, clean | Original |
 | `github-pr` | GitHub PR creation and review workflow | Original |
 | `managing-github-issues` | Issue triage, creation, and status management | Original |
 | `vitest` | Vitest testing — mocking, coverage, fixtures | Fork of antfu/skills |
@@ -76,22 +76,22 @@ npx skills update
 
 | Skill | Description | Origin |
 |-------|-------------|--------|
-| `md-render` | Render markdown as dark-mode HTML in the browser — mermaid, footnotes, emoji, copy buttons | Original |
-| `humanizer` | Clean AI-generated text — normalize characters, flag overused phrases | Original |
-| `repo-ci` | CI audit and scaffolding CLI | Original |
+| [`md-render`](docs/md-render.md) | Render markdown as dark-mode HTML in the browser — mermaid, footnotes, emoji, copy buttons | Original |
+| [`humanizer`](docs/humanizer.md) | Clean AI-generated text — normalize characters, flag overused phrases | Original |
+| [`repo-ci`](docs/repo-ci.md) | CI audit and scaffolding CLI | Original |
 
 ### CI/CD
 
 | Skill | Description | Origin |
 |-------|-------------|--------|
-| `buildkite` | Buildkite CI/CD pipeline management | Original |
-| `atlassian` | Atlassian (Jira/Confluence) integration | Original |
+| [`buildkite`](docs/buildkite.md) | Buildkite CI/CD pipeline management | Original |
+| [`atlassian`](docs/atlassian.md) | Atlassian (Jira/Confluence) integration | Original |
 
 ### Meta
 
 | Skill | Description | Origin |
 |-------|-------------|--------|
-| `skills-management` | Create, find, install, and manage skills | Original |
+| [`skills-management`](docs/skill-manager.md) | Create, find, install, and manage skills | Original |
 | `using-superpowers` | Skill discovery and invocation at conversation start | Fork of obra/superpowers |
 | `self-improve` | Capture reusable insights from sessions | Original |
 | `context-audit` | Audit context window and identify optimization targets | Original |

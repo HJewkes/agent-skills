@@ -78,30 +78,13 @@ jira issue list -p PROJECT_KEY
 
 ### `~/.atlassian-env` not found
 
-**Symptom:** The `confluence` script exits with:
-```
-Missing /Users/<you>/.atlassian-env. Create it with:
-  ATLASSIAN_DOMAIN=yoursite
-  ATLASSIAN_EMAIL=you@example.com
-  ATLASSIAN_API_TOKEN=your-api-token
-```
+**Symptom:** First-time use of `jira` or `confluence` wrappers triggers interactive setup.
 
-**Cause:** The env file does not exist, is at the wrong path, or was accidentally deleted.
+**Cause:** The env file does not exist — this is expected on first run. The wrappers auto-detect and launch `scripts/setup`.
 
-**Fix:**
+**Fix:** If setup was interrupted or failed, re-run manually:
 ```bash
-# Re-run setup (creates the file at mode 600)
 skills/atlassian/scripts/setup
-```
-
-Or create it manually and set permissions:
-```bash
-cat > ~/.atlassian-env <<EOF
-ATLASSIAN_DOMAIN=yourorg
-ATLASSIAN_EMAIL=you@example.com
-ATLASSIAN_API_TOKEN=your-token-here
-EOF
-chmod 600 ~/.atlassian-env
 ```
 
 ---

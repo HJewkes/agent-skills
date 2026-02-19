@@ -10,34 +10,34 @@ Step-by-step workflow for diagnosing and resolving Buildkite build failures.
 
 ```bash
 # List recent failed builds for a pipeline
-bk build list --pipeline SLUG --state failed
+buildkite build list --pipeline SLUG --state failed
 
 # Or find builds for a specific branch
-bk build list --pipeline SLUG --branch BRANCH_NAME
+buildkite build list --pipeline SLUG --branch BRANCH_NAME
 ```
 
 ### Step 2: Inspect build details
 
 ```bash
 # View the build — note which jobs failed
-bk build view BUILD_NUMBER --pipeline SLUG
+buildkite build view BUILD_NUMBER --pipeline SLUG
 ```
 
 ### Step 3: Get the failed job log
 
 ```bash
 # List jobs to find the failed one
-bk job list --build BUILD_NUMBER --pipeline SLUG
+buildkite job list --build BUILD_NUMBER --pipeline SLUG
 
 # Read the job log
-bk job log JOB_ID
+buildkite job log JOB_ID
 ```
 
 ### Step 4: Download artifacts
 
 ```bash
 # Test reports, coverage files, screenshots, etc.
-bk artifacts download --build BUILD_NUMBER --pipeline SLUG
+buildkite artifacts download --build BUILD_NUMBER --pipeline SLUG
 ```
 
 ### Step 5: Analyze and fix
@@ -57,7 +57,7 @@ Read the log output. Cross-reference with the failure categories below to identi
 
 **Log patterns to grep:**
 ```bash
-bk job log JOB_ID | grep -E '(FAIL|ERROR|AssertionError|Expected.*got)'
+buildkite job log JOB_ID | grep -E '(FAIL|ERROR|AssertionError|Expected.*got)'
 ```
 
 **Action:** Read the specific test failures, check if they reproduce locally, fix the code.
@@ -71,7 +71,7 @@ bk job log JOB_ID | grep -E '(FAIL|ERROR|AssertionError|Expected.*got)'
 
 **Log patterns to grep:**
 ```bash
-bk job log JOB_ID | grep -iE '(ERR!|could not resolve|not found|403|401)'
+buildkite job log JOB_ID | grep -iE '(ERR!|could not resolve|not found|403|401)'
 ```
 
 **Action:** Check lock files, verify registry access, pin problematic versions.
@@ -104,7 +104,7 @@ bk job log JOB_ID | grep -iE '(ERR!|could not resolve|not found|403|401)'
 **Diagnosis:**
 ```bash
 # Rebuild to confirm flakiness
-bk build rebuild BUILD_NUMBER --pipeline SLUG
+buildkite build rebuild BUILD_NUMBER --pipeline SLUG
 
 # Compare logs between failing and passing runs
 ```
@@ -119,7 +119,7 @@ bk build rebuild BUILD_NUMBER --pipeline SLUG
 - Network connectivity errors
 - `No agents available`
 
-**Action:** Check agent status (`bk agent list`), verify Docker registry access, check network connectivity.
+**Action:** Check agent status (`buildkite agent list`), verify Docker registry access, check network connectivity.
 
 ### Permission / Auth Failures
 
@@ -130,7 +130,7 @@ bk build rebuild BUILD_NUMBER --pipeline SLUG
 
 **Log patterns to grep:**
 ```bash
-bk job log JOB_ID | grep -iE '(403|401|forbidden|unauthorized|permission denied|access denied)'
+buildkite job log JOB_ID | grep -iE '(403|401|forbidden|unauthorized|permission denied|access denied)'
 ```
 
 **Action:** Rotate credentials, verify environment variables are set in pipeline settings, check IAM/role permissions.
@@ -142,4 +142,4 @@ bk job log JOB_ID | grep -iE '(403|401|forbidden|unauthorized|permission denied|
 - **Start with the last 50 lines** of a failed job log — the error summary is usually at the end.
 - **Compare with last passing build** — diff the logs to find what changed.
 - **Check the commit diff** — the failure is usually in the code that changed between the last green build and this one.
-- **Use `bk api`** for detailed job metadata if `bk job list` output is insufficient.
+- **Use `buildkite api`** for detailed job metadata if `buildkite job list` output is insufficient.

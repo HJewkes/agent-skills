@@ -11,12 +11,12 @@ done
 
 setup_auth() {
   local env_file="${HOME}/.atlassian-env"
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   if [[ ! -f "$env_file" ]]; then
-    echo "Missing ${env_file}. Create it with:" >&2
-    echo "  ATLASSIAN_DOMAIN=yoursite" >&2
-    echo "  ATLASSIAN_EMAIL=you@example.com" >&2
-    echo "  ATLASSIAN_API_TOKEN=your-api-token" >&2
-    exit 1
+    echo "First run detected — launching setup..." >&2
+    "$script_dir/setup"
+    [[ -f "$env_file" ]] || { echo "Setup did not complete. Run: $script_dir/setup" >&2; exit 1; }
   fi
 
   # shellcheck source=/dev/null

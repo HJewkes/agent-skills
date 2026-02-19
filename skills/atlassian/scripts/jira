@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_FILE="${HOME}/.atlassian-env"
+
+# --- Help passthrough (no setup needed) ---
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  # Find real jira binary, skipping this wrapper
+  real_jira=""
+  IFS=: read -ra path_dirs <<< "$PATH"
+  for dir in "${path_dirs[@]}"; do
+    [[ "$dir" == "$SCRIPT_DIR" ]] && continue
+    [[ -x "$dir/jira" ]] && { real_jira="$dir/jira"; break; }
+  done
+  [[ -n "$real_jira" ]] && exec "$real_jira" "$@"
+  echo "jira CLI not found. Run: brew install ankitpokhrel/jira-cli/jira-cli" >&2
+  exit 1
+fi
+
+# --- Ensure setup ---
+
+if [[ ! -f "$ENV_FILE" ]]; then
+  echo "First run detected — launching setup..." >&2
+  "$SCRIPT_DIR/setup"
+  [[ -f "$ENV_FILE" ]] || { echo "Setup did not complete. Run: $SCRIPT_DIR/setup" >&2; exit 1; }
+fi
+
+# --- Resolve real jira binary (skip this wrapper) ---
+
+real_jira=""
+IFS=: read -ra path_dirs <<< "$PATH"
+for dir in "${path_dirs[@]}"; do
+  [[ "$dir" == "$SCRIPT_DIR" ]] && continue
+  [[ -x "$dir/jira" ]] && { real_jira="$dir/jira"; break; }
+done
+
+[[ -n "$real_jira" ]] || { echo "Error: jira CLI not found. Run: brew install ankitpokhrel/jira-cli/jira-cli" >&2; exit 1; }
+
+exec "$real_jira" "$@"

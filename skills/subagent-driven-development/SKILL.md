@@ -28,7 +28,7 @@ Execute plan by dispatching fresh subagent per task, with two-stage review after
 
 ## Red Flags
 
-**Never:** skip reviews, proceed with unfixed issues, dispatch parallel implementers, paste full briefing text inline instead of pointing to briefing file, skip reading the manifest at wave boundaries, start code quality review before spec compliance passes.
+**Never:** skip reviews, proceed with unfixed issues, dispatch parallel implementers to overlapping files (use wave plan file ownership to determine — parallel is encouraged when files don't overlap), paste full briefing text inline instead of pointing to briefing file, skip reading the manifest at wave boundaries, start code quality review before spec compliance passes.
 
 - Dispatch prompts missing key sections (see skills-management/references/dispatch-prompt-template.md for the canonical 6-section structure)
 

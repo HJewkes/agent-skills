@@ -8,7 +8,7 @@ allowed-tools: Bash(jira:*), Bash(confluence:*)
 
 ## Setup
 
-Run `scripts/setup` for first-time configuration.
+Both `jira` and `confluence` wrappers auto-detect first run and launch `scripts/setup`.
 
 ## Jira Operations
 
