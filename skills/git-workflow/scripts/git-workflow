@@ -30,13 +30,12 @@ detect_tool() {
 }
 
 detect_trunk() {
-  local remote="${1:-origin}"
-  if git rev-parse --verify "$remote/main" &>/dev/null; then
+  if git rev-parse --verify "origin/main" &>/dev/null; then
     echo "main"
-  elif git rev-parse --verify "$remote/master" &>/dev/null; then
+  elif git rev-parse --verify "origin/master" &>/dev/null; then
     echo "master"
   else
-    git remote show "$remote" 2>/dev/null | awk '/HEAD branch/{print $NF}' || echo "main"
+    git remote show origin 2>/dev/null | awk '/HEAD branch/{print $NF}' || echo "main"
   fi
 }
 
