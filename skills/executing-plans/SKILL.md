@@ -59,8 +59,8 @@ After all tasks complete and verified:
    - Optionally write `.claude/plans/<plan-id>/summary.md` with execution notes
    - Delete the plan directory: `rm -rf .claude/plans/<plan-id>/`
    - If deletion fails, warn but do not block
-2. Announce: "I'm using the finishing-a-development-branch skill to complete this work."
-3. **REQUIRED SUB-SKILL:** Use finishing-a-development-branch
+2. Announce: "I'm using the git-workflow skill to complete this work."
+3. **REQUIRED SUB-SKILL:** Use git-workflow stack
 4. Follow that skill to verify tests, present options, execute choice
 
 ## Guardrails
@@ -70,6 +70,5 @@ Stop and ask when blocked — don't guess. See [references/guardrails.md](refere
 ## Integration
 
 **Required workflow skills:**
-- **using-git-worktrees** - REQUIRED: Set up isolated workspace before starting
+- **git-workflow** - REQUIRED: Worktrees for isolated workspaces, stack for completing development
 - **writing-plans** - Creates the plan this skill executes
-- **finishing-a-development-branch** - Complete development after all tasks

@@ -40,4 +40,4 @@
 - If two agents need the same file, serialize those tasks
 - Coordinator (main thread) owns integration and final verification
 - When merging, run tests after each agent's changes are integrated
-- For high-conflict scenarios, use git worktrees for isolated working directories (see using-git-worktrees skill)
+- For high-conflict scenarios, use git worktrees for isolated working directories (see git-workflow worktree)

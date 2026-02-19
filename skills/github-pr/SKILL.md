@@ -35,14 +35,14 @@ Post automated review comments on a GitHub PR using the orchestration prompt at 
 
 ## Creating PRs
 
-See `finishing-a-development-branch` skill for deciding between merge, PR, or cleanup.
+See `git-workflow stack` for deciding between merge, PR, or cleanup.
 
 ## Typical Flow
 
 1. Complete implementation
 2. Self-review with code-review skill (Quick or Deep mode)
 3. Fix issues found
-4. Open PR (via `finishing-a-development-branch`)
+4. Open PR (via `git-workflow stack`)
 5. Run PR review orchestrator for automated GitHub review
 6. Address feedback, push fixes, re-request review
 

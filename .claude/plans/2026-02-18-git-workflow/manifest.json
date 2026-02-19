@@ -1,0 +1,104 @@
+{
+  "planId": "2026-02-18-git-workflow",
+  "createdAt": "2026-02-18T00:00:00Z",
+  "goal": "Build a unified git-workflow skill with CLI and reference docs replacing commit-commands, finishing-a-development-branch, and using-git-worktrees",
+  "tasks": [
+    {
+      "id": "task-01",
+      "name": "Scaffold skill + write SKILL.md",
+      "briefing": "briefings/task-01.md",
+      "wave": 1,
+      "dependsOn": [],
+      "fileOwnership": ["skills/git-workflow/SKILL.md"],
+      "status": "pending"
+    },
+    {
+      "id": "task-02",
+      "name": "Write graphite-guide.md",
+      "briefing": "briefings/task-02.md",
+      "wave": 1,
+      "dependsOn": [],
+      "fileOwnership": ["skills/git-workflow/references/graphite-guide.md"],
+      "status": "pending"
+    },
+    {
+      "id": "task-03",
+      "name": "Write git-best-practices.md",
+      "briefing": "briefings/task-03.md",
+      "wave": 1,
+      "dependsOn": [],
+      "fileOwnership": ["skills/git-workflow/references/git-best-practices.md"],
+      "status": "pending"
+    },
+    {
+      "id": "task-04",
+      "name": "Write splitting-changes.md",
+      "briefing": "briefings/task-04.md",
+      "wave": 1,
+      "dependsOn": [],
+      "fileOwnership": ["skills/git-workflow/references/splitting-changes.md"],
+      "status": "pending"
+    },
+    {
+      "id": "task-05",
+      "name": "CLI skeleton + status subcommand",
+      "briefing": "briefings/task-05.md",
+      "wave": 2,
+      "dependsOn": ["task-01"],
+      "fileOwnership": ["skills/git-workflow/scripts/git-workflow"],
+      "status": "pending"
+    },
+    {
+      "id": "task-06",
+      "name": "CLI commit + clean subcommands",
+      "briefing": "briefings/task-06.md",
+      "wave": 3,
+      "dependsOn": ["task-05"],
+      "fileOwnership": ["skills/git-workflow/scripts/git-workflow"],
+      "status": "pending"
+    },
+    {
+      "id": "task-07",
+      "name": "CLI split + stack subcommands",
+      "briefing": "briefings/task-07.md",
+      "wave": 3,
+      "dependsOn": ["task-06"],
+      "fileOwnership": ["skills/git-workflow/scripts/git-workflow"],
+      "status": "pending"
+    },
+    {
+      "id": "task-08",
+      "name": "CLI worktree subcommand",
+      "briefing": "briefings/task-08.md",
+      "wave": 4,
+      "dependsOn": ["task-07"],
+      "fileOwnership": ["skills/git-workflow/scripts/git-workflow"],
+      "status": "pending"
+    },
+    {
+      "id": "task-09",
+      "name": "Bats tests",
+      "briefing": "briefings/task-09.md",
+      "wave": 5,
+      "dependsOn": ["task-08"],
+      "fileOwnership": ["tests/git-workflow.bats"],
+      "status": "pending"
+    },
+    {
+      "id": "task-10",
+      "name": "Cleanup replaced skills + manifest update",
+      "briefing": "briefings/task-10.md",
+      "wave": 5,
+      "dependsOn": ["task-08"],
+      "fileOwnership": ["skill-manifest.json"],
+      "status": "pending"
+    }
+  ],
+  "waves": [
+    { "id": 1, "tasks": ["task-01", "task-02", "task-03", "task-04"], "gate": "files exist + skill-manager validate passes" },
+    { "id": 2, "tasks": ["task-05"], "gate": "git-workflow --help works + git-workflow status runs" },
+    { "id": 3, "tasks": ["task-06", "task-07"], "gate": "all subcommands respond to --help" },
+    { "id": 4, "tasks": ["task-08"], "gate": "git-workflow worktree --help works" },
+    { "id": 5, "tasks": ["task-09", "task-10"], "gate": "npx bats tests/ passes + skill-manager validate passes + shellcheck clean" }
+  ]
+}

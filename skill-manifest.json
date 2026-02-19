@@ -25,10 +25,18 @@
       "upstreamPath": "skills/brainstorming",
       "forkedAt": "2026-02-16"
     },
-    "code-review": { "type": "original" },
-    "code-simplify": { "type": "original" },
-    "context-audit": { "type": "original" },
-    "coordinator": { "type": "original" },
+    "code-review": {
+      "type": "original"
+    },
+    "code-simplify": {
+      "type": "original"
+    },
+    "context-audit": {
+      "type": "original"
+    },
+    "coordinator": {
+      "type": "original"
+    },
     "dispatching-parallel-agents": {
       "type": "fork",
       "upstream": "obra/superpowers",
@@ -41,16 +49,18 @@
       "upstreamPath": "skills/executing-plans",
       "forkedAt": "2026-02-16"
     },
-    "feature-agents": { "type": "original" },
-    "finishing-a-development-branch": {
-      "type": "fork",
-      "upstream": "obra/superpowers",
-      "upstreamPath": "skills/finishing-a-development-branch",
-      "forkedAt": "2026-02-16"
+    "feature-agents": {
+      "type": "original"
     },
-    "frontend-design": { "type": "original" },
-    "github-pr": { "type": "original" },
-    "managing-github-issues": { "type": "original" },
+    "frontend-design": {
+      "type": "original"
+    },
+    "github-pr": {
+      "type": "original"
+    },
+    "managing-github-issues": {
+      "type": "original"
+    },
     "receiving-code-review": {
       "type": "fork",
       "upstream": "obra/superpowers",
@@ -61,12 +71,22 @@
       "type": "original",
       "description": "CI/release workflow auditing and scaffolding for Node and Python repos"
     },
-    "research": { "type": "original" },
-    "sdk-verify": { "type": "original" },
-    "self-improve": { "type": "original" },
+    "research": {
+      "type": "original"
+    },
+    "sdk-verify": {
+      "type": "original"
+    },
+    "self-improve": {
+      "type": "original"
+    },
     "skills-management": {
       "type": "original",
-      "consolidatedFrom": ["finding-skills", "writing-skills", "skill-conventions"]
+      "consolidatedFrom": [
+        "finding-skills",
+        "writing-skills",
+        "skill-conventions"
+      ]
     },
     "subagent-driven-development": {
       "type": "fork",
@@ -80,17 +100,13 @@
       "upstreamPath": "skills/systematic-debugging",
       "forkedAt": "2026-02-16"
     },
-    "tailwind": { "type": "original" },
+    "tailwind": {
+      "type": "original"
+    },
     "test-driven-development": {
       "type": "fork",
       "upstream": "obra/superpowers",
       "upstreamPath": "skills/test-driven-development",
-      "forkedAt": "2026-02-16"
-    },
-    "using-git-worktrees": {
-      "type": "fork",
-      "upstream": "obra/superpowers",
-      "upstreamPath": "skills/using-git-worktrees",
       "forkedAt": "2026-02-16"
     },
     "using-superpowers": {
@@ -116,6 +132,11 @@
       "upstream": "obra/superpowers",
       "upstreamPath": "skills/writing-plans",
       "forkedAt": "2026-02-16"
+    },
+    "git-workflow": {
+      "type": "original",
+      "description": "Unified git workflow skill with CLI for commits, splits, stacks, worktrees, and cleanup",
+      "consolidatedFrom": ["finishing-a-development-branch", "using-git-worktrees"]
     }
   }
 }

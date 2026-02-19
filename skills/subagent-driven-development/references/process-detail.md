@@ -43,7 +43,7 @@ digraph process {
     more [label="More tasks?" shape=diamond];
     final [label="Final code review" shape=box];
     cleanup [label="Cleanup plan directory" shape=box];
-    finish [label="finishing-a-development-branch" shape=box style=filled fillcolor=lightgreen];
+    finish [label="git-workflow stack" shape=box style=filled fillcolor=lightgreen];
 
     start -> impl;
     impl -> questions;
