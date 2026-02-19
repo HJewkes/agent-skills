@@ -1,0 +1,24 @@
+{
+  "theme": {
+    "fontFamily": "'SF Pro Display', 'Inter', system-ui, -apple-system, sans-serif",
+    "codeFontFamily": "'SF Mono', 'JetBrains Mono', 'Fira Code', ui-monospace, monospace",
+    "fontSize": "16px",
+    "lineHeight": "1.75",
+    "maxWidth": "820px",
+    "bgColor": "#0c0e14",
+    "textColor": "#c9d1d9",
+    "headingColor": "#eceff4",
+    "linkColor": "#7aa2f7",
+    "accentColor": "#9d7cd8",
+    "codeBgColor": "#12141c",
+    "borderColor": "#262a36",
+    "tocBgColor": "#0f1119"
+  },
+  "features": {
+    "toc": true,
+    "syntaxHighlight": true,
+    "headingAnchors": true,
+    "openInBrowser": true,
+    "mermaid": true
+  }
+}

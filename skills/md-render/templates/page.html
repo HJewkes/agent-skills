@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{title}}</title>
+  <style>
+    :root {
+      {{css-vars}}
+    }
+
+    /* Reset & base */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-family);
+      font-size: var(--font-size);
+      line-height: var(--line-height);
+      color: var(--text-color);
+      background: var(--bg-color);
+      min-height: 100vh;
+    }
+
+    /* TOC panel — collapsible overlay, hidden by default */
+    .toc-panel {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 300px;
+      height: 100vh;
+      background: var(--toc-bg-color);
+      border-right: 1px solid var(--border-color);
+      transform: translateX(-100%);
+      transition: transform 0.25s ease;
+      z-index: 50;
+      overflow-y: auto;
+      padding: 3.5rem 1.25rem 2rem;
+      box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
+    }
+    .toc-panel.open { transform: translateX(0); }
+
+    .toc-panel nav ul { list-style: none; }
+    .toc-panel nav li { margin: 0.25rem 0; }
+    .toc-panel nav a {
+      color: var(--text-color);
+      text-decoration: none;
+      font-size: 0.85rem;
+      opacity: 0.6;
+      transition: opacity 0.15s, color 0.15s;
+      display: block;
+      padding: 0.15rem 0;
+    }
+    .toc-panel nav a:hover { opacity: 1; color: var(--link-color); }
+    .toc-panel nav ul ul { padding-left: 1rem; }
+
+    /* TOC toggle button — always visible */
+    .toc-toggle {
+      position: fixed;
+      top: 1rem;
+      left: 1rem;
+      z-index: 100;
+      background: var(--code-bg-color);
+      border: 1px solid var(--border-color);
+      color: var(--text-color);
+      padding: 0.4rem 0.7rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      opacity: 0.7;
+      transition: opacity 0.15s, background 0.15s;
+      letter-spacing: 0.02em;
+    }
+    .toc-toggle:hover { opacity: 1; background: var(--border-color); }
+
+    /* Backdrop for closing TOC */
+    .toc-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      background: rgba(0, 0, 0, 0.3);
+    }
+    .toc-backdrop.open { display: block; }
+
+    /* Main content */
+    .content {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 3rem 2.5rem;
+    }
+
+    /* Typography */
+    h1, h2, h3, h4, h5, h6 {
+      color: var(--heading-color);
+      margin-top: 2.5rem;
+      margin-bottom: 0.75rem;
+      line-height: 1.25;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    h1 {
+      font-size: 2.25rem;
+      margin-top: 0;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border-color);
+      letter-spacing: -0.025em;
+    }
+    h2 {
+      font-size: 1.6rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid var(--border-color);
+      letter-spacing: -0.02em;
+    }
+    h3 { font-size: 1.3rem; }
+    h4 { font-size: 1.1rem; }
+    h5 { font-size: 1rem; opacity: 0.9; }
+    h6 { font-size: 0.9rem; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.04em; }
+
+    p { margin-bottom: 1rem; }
+
+    a { color: var(--link-color); text-decoration: none; transition: color 0.15s; }
+    a:hover { color: var(--accent-color); text-decoration: underline; }
+
+    strong { color: var(--heading-color); }
+
+    /* Heading anchors */
+    .heading-anchor {
+      color: var(--link-color);
+      opacity: 0;
+      margin-left: 0.3rem;
+      font-size: 0.8em;
+      transition: opacity 0.15s;
+      text-decoration: none;
+    }
+    h1:hover .heading-anchor,
+    h2:hover .heading-anchor,
+    h3:hover .heading-anchor,
+    h4:hover .heading-anchor,
+    h5:hover .heading-anchor,
+    h6:hover .heading-anchor { opacity: 0.4; }
+    .heading-anchor:hover { opacity: 1 !important; }
+
+    /* Code */
+    code {
+      font-family: var(--code-font-family);
+      background: var(--code-bg-color);
+      padding: 0.15rem 0.45rem;
+      border-radius: 5px;
+      font-size: 0.88em;
+      border: 1px solid var(--border-color);
+    }
+    pre {
+      background: var(--code-bg-color);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      overflow-x: auto;
+      margin-bottom: 1.25rem;
+      position: relative;
+    }
+    pre code {
+      background: none;
+      padding: 0;
+      border-radius: 0;
+      border: none;
+      font-size: 0.85rem;
+      line-height: 1.65;
+    }
+
+    /* Copy full markdown button */
+    .copy-md-btn {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 100;
+      background: var(--code-bg-color);
+      border: 1px solid var(--border-color);
+      color: var(--text-color);
+      padding: 0.4rem 0.7rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-family: var(--font-family);
+      opacity: 0.7;
+      transition: opacity 0.15s, background 0.15s;
+      letter-spacing: 0.02em;
+    }
+    .copy-md-btn:hover { opacity: 1; background: var(--border-color); }
+    .copy-md-btn.copied { opacity: 1; background: #2ea043; color: #fff; }
+
+    /* Copy button on code blocks */
+    .copy-btn {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      background: var(--border-color);
+      border: none;
+      color: var(--text-color);
+      padding: 0.25rem 0.55rem;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-family: var(--font-family);
+      opacity: 0;
+      transition: opacity 0.15s, background 0.15s;
+      letter-spacing: 0.02em;
+    }
+    pre:hover .copy-btn { opacity: 0.7; }
+    .copy-btn:hover { opacity: 1 !important; background: var(--accent-color); }
+    .copy-btn.copied { opacity: 1; background: #2ea043; }
+    /* Hide copy button on mermaid diagrams */
+    pre.mermaid .copy-btn { display: none; }
+
+    /* Lists */
+    ul, ol { margin-bottom: 1rem; padding-left: 1.5rem; }
+    li { margin-bottom: 0.35rem; }
+    li > ul, li > ol { margin-top: 0.35rem; margin-bottom: 0; }
+
+    /* Task list checkboxes */
+    .task-list-item {
+      list-style: none;
+      margin-left: -1.5rem;
+      padding-left: 0;
+    }
+    .task-list-item input[type="checkbox"] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 1.1em;
+      height: 1.1em;
+      border: 2px solid var(--border-color);
+      border-radius: 4px;
+      background: transparent;
+      vertical-align: -0.15em;
+      margin-right: 0.5em;
+      cursor: default;
+      position: relative;
+    }
+    .task-list-item input[type="checkbox"]:checked {
+      background: var(--link-color);
+      border-color: var(--link-color);
+    }
+    .task-list-item input[type="checkbox"]:checked::after {
+      content: '';
+      position: absolute;
+      left: 3px;
+      top: 0px;
+      width: 5px;
+      height: 9px;
+      border: solid var(--bg-color);
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+
+    /* Blockquote */
+    blockquote {
+      border-left: 3px solid var(--accent-color);
+      margin: 1.25rem 0;
+      padding: 0.75rem 1.25rem;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 0 8px 8px 0;
+      color: var(--text-color);
+      opacity: 0.9;
+    }
+    blockquote p:last-child { margin-bottom: 0; }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 1.25rem;
+      font-size: 0.92em;
+    }
+    th, td {
+      border: 1px solid var(--border-color);
+      padding: 0.6rem 0.85rem;
+      text-align: left;
+    }
+    th {
+      background: var(--code-bg-color);
+      color: var(--heading-color);
+      font-weight: 600;
+      font-size: 0.85em;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    tr:hover td { background: rgba(255, 255, 255, 0.015); }
+
+    /* Horizontal rule */
+    hr {
+      border: none;
+      border-top: 1px solid var(--border-color);
+      margin: 2.5rem 0;
+    }
+
+    /* Images */
+    img {
+      max-width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+    }
+    /* Hide broken images gracefully */
+    img[alt]::after {
+      content: attr(alt);
+      display: block;
+      padding: 1rem;
+      color: var(--text-color);
+      opacity: 0.5;
+      font-style: italic;
+    }
+
+    /* Inline TOC (in content) — collapsible */
+    .content nav.toc {
+      background: var(--code-bg-color);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+    .toc-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1.25rem;
+      cursor: pointer;
+      user-select: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--heading-color);
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .toc-header:hover { color: var(--link-color); }
+    .toc-chevron {
+      transition: transform 0.2s;
+      font-size: 0.75rem;
+      opacity: 0.5;
+    }
+    .toc-chevron.open { transform: rotate(180deg); }
+    .toc-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+    .toc-body.open { max-height: 2000px; }
+    .toc-body ul {
+      list-style: none;
+      padding: 0 1.25rem 0.75rem;
+      margin: 0;
+    }
+    .toc-body li { margin: 0.2rem 0; }
+    .toc-body a {
+      color: var(--text-color);
+      text-decoration: none;
+      font-size: 0.85rem;
+      opacity: 0.6;
+      transition: opacity 0.15s, color 0.15s;
+    }
+    .toc-body a:hover { opacity: 1; color: var(--link-color); }
+    .toc-body ul ul { padding-left: 1rem; padding-bottom: 0; }
+
+    /* Strikethrough */
+    del { opacity: 0.5; }
+
+    /* Footnotes */
+    .footnotes-sep { margin-top: 3rem; }
+    .footnotes { font-size: 0.88em; opacity: 0.85; }
+    .footnotes ol { padding-left: 1.5rem; }
+    .footnotes li { margin-bottom: 0.5rem; }
+    .footnote-ref a {
+      color: var(--accent-color);
+      font-size: 0.75em;
+      vertical-align: super;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .footnote-ref a:hover { text-decoration: underline; }
+    .footnote-backref { color: var(--accent-color); text-decoration: none; font-size: 0.85em; }
+
+    /* Highlighted text (==mark==) */
+    mark {
+      background: rgba(157, 124, 216, 0.2);
+      color: var(--heading-color);
+      padding: 0.1rem 0.3rem;
+      border-radius: 3px;
+    }
+
+    /* Subscript / Superscript */
+    sub, sup { font-size: 0.75em; }
+    sup { vertical-align: super; }
+    sub { vertical-align: sub; }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .content { padding: 3rem 1.25rem 2rem; }
+    }
+
+    /* Highlight.js GitHub Dark (inline) */
+    .hljs { color: #e6edf3; }
+    .hljs-comment, .hljs-quote { color: #8b949e; font-style: italic; }
+    .hljs-keyword, .hljs-selector-tag { color: #ff7b72; }
+    .hljs-string, .hljs-addition { color: #a5d6ff; }
+    .hljs-number { color: #79c0ff; }
+    .hljs-built_in { color: #ffa657; }
+    .hljs-type, .hljs-title, .hljs-title.class_ { color: #ffa657; }
+    .hljs-attr, .hljs-variable, .hljs-template-variable { color: #79c0ff; }
+    .hljs-function .hljs-title { color: #d2a8ff; }
+    .hljs-selector-class { color: #7ee787; }
+    .hljs-deletion { color: #ffa198; background: rgba(255,129,130,0.1); }
+    .hljs-addition { background: rgba(63,185,80,0.1); }
+    .hljs-emphasis { font-style: italic; }
+    .hljs-strong { font-weight: bold; }
+
+    /* Smooth scroll */
+    html { scroll-behavior: smooth; }
+  </style>
+</head>
+<body>
+  <button class="toc-toggle" onclick="toggleToc()" aria-label="Toggle table of contents">&#9776; Contents</button>
+  <button class="copy-md-btn" onclick="copyMarkdown(this)" aria-label="Copy markdown source">&#128203; Copy MD</button>
+  <script id="raw-markdown" type="text/plain">{{raw-markdown}}</script>
+  <div class="toc-backdrop" onclick="toggleToc()"></div>
+  <aside class="toc-panel">
+    {{toc}}
+  </aside>
+  <main class="content">
+    {{content}}
+  </main>
+  <script>
+    function copyMarkdown(btn) {
+      var raw = document.getElementById('raw-markdown').textContent;
+      navigator.clipboard.writeText(raw).then(function() {
+        btn.textContent = '\u2705 Copied!';
+        btn.classList.add('copied');
+        setTimeout(function() {
+          btn.textContent = '\uD83D\uDCCB Copy MD';
+          btn.classList.remove('copied');
+        }, 1500);
+      });
+    }
+    function toggleToc() {
+      document.querySelector('.toc-panel').classList.toggle('open');
+      document.querySelector('.toc-backdrop').classList.toggle('open');
+    }
+    document.querySelectorAll('.toc-panel a').forEach(function(a) {
+      a.addEventListener('click', function() { toggleToc(); });
+    });
+    document.querySelectorAll('.content nav.toc').forEach(function(toc) {
+      var inner = toc.innerHTML;
+      toc.innerHTML = '<div class="toc-header" onclick="this.nextElementSibling.classList.toggle(\'open\');this.querySelector(\'.toc-chevron\').classList.toggle(\'open\')">Table of Contents <span class="toc-chevron">&#9660;</span></div><div class="toc-body">' + inner + '</div>';
+    });
+    document.querySelectorAll('pre').forEach(function(pre) {
+      if (pre.classList.contains('mermaid')) return;
+      var btn = document.createElement('button');
+      btn.className = 'copy-btn';
+      btn.textContent = 'Copy';
+      btn.addEventListener('click', function() {
+        var code = pre.querySelector('code');
+        var text = code ? code.textContent : pre.textContent;
+        navigator.clipboard.writeText(text).then(function() {
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(function() {
+            btn.textContent = 'Copy';
+            btn.classList.remove('copied');
+          }, 1500);
+        });
+      });
+      pre.appendChild(btn);
+    });
+  </script>
+  {{mermaid}}
+</body>
+</html>

@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+RENDERER="$SKILL_DIR/src/render.mjs"
+DEFAULTS_CONFIG="$SKILL_DIR/defaults/config.json"
+GLOBAL_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/agent-skills/md-render/config.json"
+
+# Flags
+INPUT_FILE=""
+OUTPUT_FILE=""
+NO_OPEN=false
+CONFIG_PATH=""
+
+usage() {
+  cat <<'EOF'
+Usage: md-render <file|-> [options]
+
+Render markdown as styled HTML and open in the browser.
+
+Arguments:
+  file             Markdown file to render (use - for stdin)
+
+Options:
+  --output, -o     Write HTML to file instead of temp file
+  --no-open        Generate HTML but don't open browser
+  --config, -c     Path to alternate config file
+  --help, -h       Show this help message
+
+Exit codes:
+  0  Success
+  1  Error
+
+Examples:
+  md-render docs/design.md
+  md-render - < README.md
+  md-render plan.md -o plan.html
+EOF
+}
+
+die() { echo "Error: $1" >&2; exit 1; }
+
+# Parse args
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --output|-o) OUTPUT_FILE="$2"; shift 2 ;;
+    --no-open) NO_OPEN=true; shift ;;
+    --config|-c) CONFIG_PATH="$2"; shift 2 ;;
+    --help|-h) usage; exit 0 ;;
+    -) INPUT_FILE="-"; shift ;;
+    -*) die "Unknown option: $1" ;;
+    *)
+      [[ -z "$INPUT_FILE" ]] || die "Unexpected argument: $1"
+      INPUT_FILE="$1"; shift
+      ;;
+  esac
+done
+
+[[ -n "$INPUT_FILE" ]] || die "Missing input file. Use --help for usage."
+
+# Read input
+if [[ "$INPUT_FILE" == "-" ]]; then
+  MARKDOWN=$(cat)
+else
+  [[ -f "$INPUT_FILE" ]] || die "File not found: $INPUT_FILE"
+  MARKDOWN=$(cat "$INPUT_FILE")
+fi
+
+# Resolve config: --config flag > global config > defaults
+if [[ -n "$CONFIG_PATH" ]]; then
+  [[ -f "$CONFIG_PATH" ]] || die "Config not found: $CONFIG_PATH"
+  RESOLVED_CONFIG="$CONFIG_PATH"
+elif [[ -f "$GLOBAL_CONFIG" ]]; then
+  RESOLVED_CONFIG="$GLOBAL_CONFIG"
+else
+  # First run: copy defaults to global location
+  mkdir -p "$(dirname "$GLOBAL_CONFIG")"
+  cp "$DEFAULTS_CONFIG" "$GLOBAL_CONFIG"
+  RESOLVED_CONFIG="$GLOBAL_CONFIG"
+fi
+
+# Render
+HTML=$(echo "$MARKDOWN" | node "$RENDERER" "$RESOLVED_CONFIG")
+
+# Write output
+if [[ -n "$OUTPUT_FILE" ]]; then
+  echo "$HTML" > "$OUTPUT_FILE"
+  echo "Written to $OUTPUT_FILE" >&2
+else
+  TMPFILE="/tmp/md-render-$$.html"
+  echo "$HTML" > "$TMPFILE"
+  OUTPUT_FILE="$TMPFILE"
+fi
+
+# Open in browser
+if [[ "$NO_OPEN" == false ]]; then
+  if command -v open &>/dev/null; then
+    open "$OUTPUT_FILE"
+  elif command -v xdg-open &>/dev/null; then
+    xdg-open "$OUTPUT_FILE"
+  else
+    echo "HTML written to $OUTPUT_FILE (no browser opener found)" >&2
+  fi
+fi
