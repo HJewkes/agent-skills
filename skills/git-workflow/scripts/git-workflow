@@ -1,0 +1,748 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Color helpers
+if [[ -t 1 ]] && command -v tput &>/dev/null; then
+  RED=$(tput setaf 1)
+  GREEN=$(tput setaf 2)
+  YELLOW=$(tput setaf 3)
+  CYAN=$(tput setaf 6)
+  BOLD=$(tput bold)
+  RESET=$(tput sgr0)
+else
+  RED="" GREEN="" YELLOW="" CYAN="" BOLD="" RESET=""
+fi
+
+die() { echo "${RED}Error: $1${RESET}" >&2; exit 1; }
+info() { echo "${CYAN}$1${RESET}" >&2; }
+warn() { echo "${YELLOW}Warning: $1${RESET}" >&2; }
+
+# --- Tool detection ---
+
+detect_tool() {
+  if command -v gt &>/dev/null; then
+    echo "graphite"
+  elif command -v git &>/dev/null; then
+    echo "git"
+  else
+    echo "none"
+  fi
+}
+
+detect_trunk() {
+  if git rev-parse --verify "origin/main" &>/dev/null; then
+    echo "main"
+  elif git rev-parse --verify "origin/master" &>/dev/null; then
+    echo "master"
+  else
+    git remote show origin 2>/dev/null | awk '/HEAD branch/{print $NF}' || echo "main"
+  fi
+}
+
+# --- Usage ---
+
+usage() {
+  cat <<'EOF'
+Usage: git-workflow <command> [options]
+
+Commands:
+  status     Detect environment and report repo state (default)
+  commit     Guided commit with conventional format
+  split      Analyze and decompose large diffs
+  stack      View and manage branch stack
+  worktree   Create isolated worktree
+  clean      Remove merged/gone branches
+
+Options:
+  --help     Show this help message
+
+Run 'git-workflow <command> --help' for command-specific options.
+
+Exit codes:
+  0  Success
+  1  Error
+  2  Warnings
+EOF
+}
+
+# --- Status subcommand ---
+
+usage_status() {
+  cat <<'EOF'
+Usage: git-workflow status [options]
+
+Detect git tool (Graphite or Git) and report repository state.
+
+Options:
+  --json     Output as JSON
+  --help     Show this help message
+
+Output includes:
+  - Detected tool (graphite or git) and version
+  - Current branch
+  - Dirty file count (staged + unstaged)
+  - Ahead/behind counts relative to remote
+  - Stack state (Graphite only)
+EOF
+}
+
+cmd_status() {
+  local json_output=false
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json_output=true; shift ;;
+      --help) usage_status; exit 0 ;;
+      *) die "Unknown option for status: $1" ;;
+    esac
+  done
+
+  # Must be in a git repo
+  git rev-parse --git-dir &>/dev/null || die "not a git repository"
+
+  local tool
+  tool=$(detect_tool)
+  [[ "$tool" == "none" ]] && die "neither git nor gt found"
+
+  local tool_version=""
+  if [[ "$tool" == "graphite" ]]; then
+    tool_version=$(gt --version 2>/dev/null || echo "unknown")
+  else
+    tool_version=$(git --version 2>/dev/null | awk '{print $3}')
+  fi
+
+  local branch
+  branch=$(git branch --show-current 2>/dev/null || echo "detached")
+
+  local trunk
+  trunk=$(detect_trunk)
+
+  # Dirty files
+  local staged unstaged
+  staged=$(git diff --cached --numstat 2>/dev/null | wc -l | tr -d ' ')
+  unstaged=$(git diff --numstat 2>/dev/null | wc -l | tr -d ' ')
+  local untracked
+  untracked=$(git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')
+
+  # Ahead/behind
+  local ahead=0 behind=0
+  if git rev-parse --verify "origin/$branch" &>/dev/null; then
+    ahead=$(git rev-list --count "origin/$branch..HEAD" 2>/dev/null || echo 0)
+    behind=$(git rev-list --count "HEAD..origin/$branch" 2>/dev/null || echo 0)
+  fi
+
+  # Stack state (Graphite only)
+  local stack_info=""
+  if [[ "$tool" == "graphite" ]]; then
+    stack_info=$(gt log short 2>/dev/null || echo "no stack")
+  fi
+
+  if [[ "$json_output" == true ]]; then
+    cat <<ENDJSON
+{
+  "tool": "$tool",
+  "toolVersion": "$tool_version",
+  "branch": "$branch",
+  "trunk": "$trunk",
+  "staged": $staged,
+  "unstaged": $unstaged,
+  "untracked": $untracked,
+  "ahead": $ahead,
+  "behind": $behind
+}
+ENDJSON
+  else
+    echo "${BOLD}Git Workflow Status${RESET}"
+    echo ""
+    echo "  Tool:      ${GREEN}$tool${RESET} ($tool_version)"
+    echo "  Branch:    ${CYAN}$branch${RESET}"
+    echo "  Trunk:     $trunk"
+    echo "  Staged:    $staged files"
+    echo "  Unstaged:  $unstaged files"
+    echo "  Untracked: $untracked files"
+    echo "  Ahead:     $ahead commits"
+    echo "  Behind:    $behind commits"
+    if [[ -n "$stack_info" && "$stack_info" != "no stack" ]]; then
+      echo ""
+      echo "  ${BOLD}Stack:${RESET}"
+      echo "    ${stack_info//$'\n'/$'\n'    }"
+    fi
+  fi
+}
+
+# --- Commit subcommand ---
+
+usage_commit() {
+  cat <<'EOF'
+Usage: git-workflow commit [options]
+
+Guided commit with conventional format.
+
+Options:
+  -m, --message <msg>  Commit message (conventional format: "type: description")
+  -a, --all            Stage all modified files before committing
+  --amend              Amend the current branch commit (gt modify or git commit --amend)
+  --help               Show this help message
+
+Behavior:
+  - Graphite: uses 'gt create' for new branch+commit, 'gt modify' for amend
+  - Git: uses 'git commit', 'git commit --amend' for amend
+  - Validates message matches conventional format before committing
+  - Shows staged files summary before executing
+EOF
+}
+
+cmd_commit() {
+  local message="" stage_all=false amend=false
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -m|--message) message="$2"; shift 2 ;;
+      -a|--all) stage_all=true; shift ;;
+      --amend) amend=true; shift ;;
+      --help) usage_commit; exit 0 ;;
+      *) die "Unknown option for commit: $1" ;;
+    esac
+  done
+
+  git rev-parse --git-dir &>/dev/null || die "not a git repository"
+
+  local tool
+  tool=$(detect_tool)
+
+  # Stage all if requested
+  if [[ "$stage_all" == true ]]; then
+    git add -u
+    info "Staged all modified tracked files"
+  fi
+
+  # Check for staged changes
+  local staged_count
+  staged_count=$(git diff --cached --numstat 2>/dev/null | wc -l | tr -d ' ')
+  if [[ "$staged_count" -eq 0 && "$amend" == false ]]; then
+    die "no staged changes. Stage files first with 'git add <file>'"
+  fi
+
+  # Require message
+  [[ -z "$message" ]] && die "commit message required. Use -m 'type: description'"
+
+  # Validate conventional commit format
+  if ! echo "$message" | grep -qE '^(feat|fix|docs|refactor|perf|test|chore|ci|style)(\(.+\))?!?: .+'; then
+    warn "message does not match conventional format: type[(scope)][!]: description"
+    warn "valid types: feat, fix, docs, refactor, perf, test, chore, ci, style"
+  fi
+
+  # Show what will be committed
+  echo "${BOLD}Staged changes:${RESET}"
+  git diff --cached --stat
+  echo ""
+
+  if [[ "$amend" == true ]]; then
+    if [[ "$tool" == "graphite" ]]; then
+      info "Amending with: gt modify"
+      gt modify -m "$message"
+    else
+      info "Amending with: git commit --amend"
+      git commit --amend -m "$message"
+    fi
+  else
+    if [[ "$tool" == "graphite" ]]; then
+      info "Creating with: gt create -m '$message'"
+      gt create -m "$message"
+    else
+      info "Committing with: git commit"
+      git commit -m "$message"
+    fi
+  fi
+
+  echo ""
+  echo "${GREEN}Done.${RESET}"
+}
+
+# --- Clean subcommand ---
+
+usage_clean() {
+  cat <<'EOF'
+Usage: git-workflow clean [options]
+
+Remove branches that have been merged or deleted on the remote.
+
+Options:
+  --dry-run    Show what would be removed without doing it
+  --help       Show this help message
+
+Behavior:
+  - Graphite: runs 'gt sync' which handles cleanup
+  - Git: finds [gone] branches, removes associated worktrees, deletes branches
+EOF
+}
+
+cmd_clean() {
+  local dry_run=false
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --dry-run) dry_run=true; shift ;;
+      --help) usage_clean; exit 0 ;;
+      *) die "Unknown option for clean: $1" ;;
+    esac
+  done
+
+  git rev-parse --git-dir &>/dev/null || die "not a git repository"
+
+  local tool
+  tool=$(detect_tool)
+
+  # Fetch latest remote state
+  info "Fetching remote..."
+  git fetch --prune 2>/dev/null
+
+  if [[ "$tool" == "graphite" ]]; then
+    if [[ "$dry_run" == true ]]; then
+      info "Dry run: would run 'gt sync' to clean up merged branches"
+      gt log short 2>/dev/null || true
+    else
+      info "Running: gt sync"
+      gt sync
+    fi
+    return
+  fi
+
+  # Git: find gone branches
+  local gone_branches
+  gone_branches=$(git branch -v 2>/dev/null | grep '\[gone\]' | sed 's/^[+* ]*//' | awk '{print $1}') || true
+
+  if [[ -z "$gone_branches" ]]; then
+    echo "No stale branches found."
+    return
+  fi
+
+  echo "${BOLD}Stale branches:${RESET}"
+  echo "$gone_branches" | while read -r branch; do
+    echo "  - $branch"
+  done
+
+  if [[ "$dry_run" == true ]]; then
+    echo ""
+    echo "(dry run — no changes made)"
+    return
+  fi
+
+  echo ""
+  echo "$gone_branches" | while read -r branch; do
+    # Remove associated worktree if exists
+    local worktree_path
+    worktree_path=$(git worktree list 2>/dev/null | grep "\\[$branch\\]" | awk '{print $1}')
+    if [[ -n "$worktree_path" && "$worktree_path" != "$(git rev-parse --show-toplevel)" ]]; then
+      info "Removing worktree: $worktree_path"
+      git worktree remove --force "$worktree_path" 2>/dev/null || warn "failed to remove worktree $worktree_path"
+    fi
+
+    info "Deleting branch: $branch"
+    git branch -D "$branch" 2>/dev/null || warn "failed to delete branch $branch"
+  done
+
+  echo ""
+  echo "${GREEN}Cleanup complete.${RESET}"
+}
+
+# --- Split subcommand ---
+
+usage_split() {
+  cat <<'EOF'
+Usage: git-workflow split [options]
+
+Analyze current changes and suggest how to decompose them.
+
+Options:
+  --by-file           Group changes by file/directory for splitting
+  --by-commit         Show commit boundaries (for splitting existing commits)
+  --dry-run           Analyze only, don't execute any split operations
+  --help              Show this help message
+
+Behavior:
+  - Analyzes staged + unstaged changes (or commit history)
+  - Groups files by directory/type and suggests split boundaries
+  - Graphite: guides through gt split or gt create per unit
+  - Git: guides through git add -p + git stash workflow
+EOF
+}
+
+cmd_split() {
+  local by_file=false by_commit=false dry_run=false
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --by-file) by_file=true; shift ;;
+      --by-commit) by_commit=true; shift ;;
+      --dry-run) dry_run=true; shift ;;
+      --help) usage_split; exit 0 ;;
+      *) die "Unknown option for split: $1" ;;
+    esac
+  done
+
+  git rev-parse --git-dir &>/dev/null || die "not a git repository"
+
+  local tool
+  tool=$(detect_tool)
+  local trunk
+  trunk=$(detect_trunk)
+
+  if [[ "$by_commit" == true ]]; then
+    echo "${BOLD}Commits on current branch:${RESET}"
+    echo ""
+    git log --oneline "$trunk..HEAD" 2>/dev/null
+    local commit_count
+    commit_count=$(git rev-list --count "$trunk..HEAD" 2>/dev/null || echo 0)
+    echo ""
+    echo "Found $commit_count commits."
+
+    if [[ "$commit_count" -gt 1 && "$tool" == "graphite" ]]; then
+      echo ""
+      echo "${CYAN}Suggestion:${RESET} Run 'gt split --by-commit' to promote each commit to its own branch."
+    elif [[ "$commit_count" -gt 1 ]]; then
+      echo ""
+      echo "${CYAN}Suggestion:${RESET} Use 'git rebase -i $trunk' to reorder/split commits into separate branches."
+    fi
+
+    if [[ "$dry_run" == true ]]; then
+      echo "(dry run — no changes made)"
+    fi
+    return
+  fi
+
+  # Analyze changes (staged + unstaged + untracked)
+  local changed_files
+  changed_files=$( (git diff --name-only HEAD 2>/dev/null; git diff --cached --name-only 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null) | sort -u)
+
+  if [[ -z "$changed_files" ]]; then
+    echo "No local changes to split."
+    return
+  fi
+
+  local file_count
+  file_count=$(echo "$changed_files" | wc -l | tr -d ' ')
+
+  # Get total lines changed
+  local lines_changed
+  lines_changed=$(git diff --stat HEAD 2>/dev/null | tail -1 | grep -oE '[0-9]+ insertion|[0-9]+ deletion' | awk '{s+=$1}END{print s+0}')
+
+  echo "${BOLD}Change Analysis:${RESET}"
+  echo ""
+  echo "  Files changed:  $file_count"
+  echo "  Lines changed:  ${lines_changed:-0}"
+  echo ""
+
+  if [[ "$by_file" == true ]] || [[ "$file_count" -gt 5 ]]; then
+    echo "${BOLD}Changes by directory:${RESET}"
+    echo ""
+    echo "$changed_files" | awk -F/ '{print $1}' | sort | uniq -c | sort -rn | while read -r count dir; do
+      echo "  $count files  $dir/"
+    done
+    echo ""
+
+    echo "${BOLD}File list:${RESET}"
+    while IFS= read -r f; do
+      echo "  $f"
+    done <<< "$changed_files"
+    echo ""
+  fi
+
+  # Suggestions
+  if [[ "${lines_changed:-0}" -gt 400 ]] || [[ "$file_count" -gt 25 ]]; then
+    warn "This change is large (>400 lines or >25 files). Consider splitting."
+    echo ""
+  fi
+
+  if [[ "$tool" == "graphite" ]]; then
+    echo "${CYAN}Split options (Graphite):${RESET}"
+    echo "  gt split --by-hunk     Interactive hunk-level split"
+    echo "  gt split --by-file     Extract files into parent branch"
+    echo "  gt create -m 'msg'     Start building a stack manually"
+  else
+    echo "${CYAN}Split options (Git):${RESET}"
+    echo "  git add --patch        Stage related hunks interactively"
+    echo "  git stash              Stash remaining changes after partial commit"
+    echo "  git rebase -i $trunk   Reorder/split existing commits"
+  fi
+
+  if [[ "$dry_run" == true ]]; then
+    echo ""
+    echo "(dry run — no changes made)"
+  fi
+}
+
+# --- Stack subcommand ---
+
+usage_stack() {
+  cat <<'EOF'
+Usage: git-workflow stack [options]
+
+View and manage the branch stack.
+
+Options:
+  --create <name>    Create a new branch on top of the current stack
+  --sync             Sync with trunk and restack (gt sync or git pull --rebase)
+  --help             Show this help message
+
+Behavior:
+  - Graphite: shows gt log, delegates to gt commands
+  - Git: shows branch tree relative to trunk
+EOF
+}
+
+cmd_stack() {
+  local create_name="" do_sync=false
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --create) create_name="$2"; shift 2 ;;
+      --sync) do_sync=true; shift ;;
+      --help) usage_stack; exit 0 ;;
+      *) die "Unknown option for stack: $1" ;;
+    esac
+  done
+
+  git rev-parse --git-dir &>/dev/null || die "not a git repository"
+
+  local tool
+  tool=$(detect_tool)
+  local trunk
+  trunk=$(detect_trunk)
+
+  # Sync operation
+  if [[ "$do_sync" == true ]]; then
+    if [[ "$tool" == "graphite" ]]; then
+      info "Running: gt sync"
+      gt sync
+    else
+      local branch
+      branch=$(git branch --show-current)
+      info "Pulling latest $trunk and rebasing..."
+      git checkout "$trunk" && git pull && git checkout "$branch" && git rebase "$trunk"
+    fi
+    return
+  fi
+
+  # Create branch on stack
+  if [[ -n "$create_name" ]]; then
+    if [[ "$tool" == "graphite" ]]; then
+      info "Creating stack branch: gt create '$create_name'"
+      gt create "$create_name"
+    else
+      local current
+      current=$(git branch --show-current)
+      info "Creating branch: $create_name (based on $current)"
+      git checkout -b "$create_name"
+    fi
+    return
+  fi
+
+  # Default: show stack state
+  echo "${BOLD}Branch Stack:${RESET}"
+  echo ""
+
+  if [[ "$tool" == "graphite" ]]; then
+    gt log short 2>/dev/null || echo "  (no Graphite stack)"
+  else
+    local current
+    current=$(git branch --show-current 2>/dev/null || echo "detached")
+    echo "  Trunk: $trunk"
+    echo "  Current: $current"
+    echo ""
+
+    echo "  ${BOLD}Branches:${RESET}"
+    git for-each-ref --format='%(refname:short)' refs/heads/ | while read -r branch; do
+      [[ "$branch" == "$trunk" ]] && continue
+      local ahead_count
+      ahead_count=$(git rev-list --count "$trunk..$branch" 2>/dev/null || echo "?")
+      local marker=""
+      [[ "$branch" == "$current" ]] && marker=" ${GREEN}← current${RESET}"
+      echo "    $branch ($ahead_count ahead)$marker"
+    done
+  fi
+}
+
+# --- Worktree subcommand ---
+
+usage_worktree() {
+  cat <<'EOF'
+Usage: git-workflow worktree [options]
+
+Create an isolated git worktree with dependency installation and test baseline.
+
+Options:
+  --branch <name>    Branch name for the worktree (required)
+  --base <branch>    Base branch to create from (default: current branch)
+  --dir <path>       Worktree parent directory (overrides auto-detection)
+  --no-install       Skip dependency installation
+  --no-test          Skip baseline test verification
+  --help             Show this help message
+
+Directory auto-detection priority:
+  1. .worktrees/  (if exists)
+  2. worktrees/   (if exists)
+  3. CLAUDE.md worktree preference (if specified)
+  4. Exit 1 with suggestion
+
+Exit codes:
+  0  Worktree ready, tests pass
+  1  Fatal error
+  2  Worktree created but tests fail or no test runner found
+EOF
+}
+
+cmd_worktree() {
+  local branch="" base="" dir_override="" do_install=true do_test=true
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --branch) branch="$2"; shift 2 ;;
+      --base) base="$2"; shift 2 ;;
+      --dir) dir_override="$2"; shift 2 ;;
+      --no-install) do_install=false; shift ;;
+      --no-test) do_test=false; shift ;;
+      --help) usage_worktree; exit 0 ;;
+      *) die "Unknown option for worktree: $1" ;;
+    esac
+  done
+
+  [[ -z "$branch" ]] && die "branch name required. Use --branch <name>"
+  git rev-parse --git-dir &>/dev/null || die "not a git repository"
+
+  local repo_root
+  repo_root=$(git rev-parse --show-toplevel)
+
+  # Determine worktree parent directory
+  local wt_parent=""
+  if [[ -n "$dir_override" ]]; then
+    wt_parent="$dir_override"
+  elif [[ -d "$repo_root/.worktrees" ]]; then
+    wt_parent="$repo_root/.worktrees"
+    info "Detected: .worktrees/"
+  elif [[ -d "$repo_root/worktrees" ]]; then
+    wt_parent="$repo_root/worktrees"
+    info "Detected: worktrees/"
+  elif [[ -f "$repo_root/CLAUDE.md" ]]; then
+    local wt_dir
+    # shellcheck disable=SC2016
+    wt_dir=$(grep -i 'worktree.*director' "$repo_root/CLAUDE.md" 2>/dev/null | head -1 | sed 's/.*[`"]\([^`"]*\)[`"].*/\1/' || true)
+    if [[ -n "$wt_dir" ]]; then
+      wt_parent="$repo_root/$wt_dir"
+      info "Detected from CLAUDE.md: $wt_dir"
+    fi
+  fi
+
+  if [[ -z "$wt_parent" ]]; then
+    die "no worktree directory detected. Create .worktrees/ in repo root, or use --dir <path>"
+  fi
+
+  mkdir -p "$wt_parent"
+
+  # Safety: verify project-local directories are gitignored
+  local wt_relpath="${wt_parent#"$repo_root"/}"
+  if [[ "$wt_parent" == "$repo_root"/* ]]; then
+    if ! git check-ignore -q "$wt_relpath" 2>/dev/null; then
+      warn "$wt_relpath is not in .gitignore — adding it"
+      echo "$wt_relpath" >> "$repo_root/.gitignore"
+      git -C "$repo_root" add .gitignore
+      git -C "$repo_root" commit -m "Add $wt_relpath to .gitignore"
+      info "Committed .gitignore update"
+    fi
+  fi
+
+  local wt_path="$wt_parent/$branch"
+
+  # Create worktree
+  info "Creating worktree at $wt_path..."
+  if [[ -n "$base" ]]; then
+    git worktree add "$wt_path" -b "$branch" "$base" || die "git worktree add failed"
+  else
+    git worktree add "$wt_path" -b "$branch" || die "git worktree add failed"
+  fi
+
+  # Install dependencies
+  if [[ "$do_install" == true ]]; then
+    info "Installing dependencies..."
+    cd "$wt_path"
+
+    if [[ -f package.json ]]; then
+      info "Detected: package.json -> npm install"
+      npm install 2>&1 >&2
+    elif [[ -f Cargo.toml ]]; then
+      info "Detected: Cargo.toml -> cargo build"
+      cargo build 2>&1 >&2
+    elif [[ -f requirements.txt ]]; then
+      info "Detected: requirements.txt -> pip install"
+      pip install -r requirements.txt 2>&1 >&2
+    elif [[ -f pyproject.toml ]]; then
+      if [[ -f poetry.lock ]]; then
+        info "Detected: pyproject.toml -> poetry install"
+        poetry install 2>&1 >&2
+      else
+        info "Detected: pyproject.toml -> pip install -e ."
+        pip install -e . 2>&1 >&2
+      fi
+    elif [[ -f go.mod ]]; then
+      info "Detected: go.mod -> go mod download"
+      go mod download 2>&1 >&2
+    else
+      info "No dependency file detected, skipping install"
+    fi
+  fi
+
+  # Run baseline tests
+  if [[ "$do_test" == true ]]; then
+    info "Running baseline tests..."
+    cd "$wt_path"
+
+    # Inline test runner detection
+    local test_cmd=""
+    if [[ -f package.json ]]; then
+      local test_script
+      test_script=$(sed -n '/"scripts"/,/}/p' package.json | grep '"test"' | head -1 | sed 's/.*"test"[[:space:]]*:[[:space:]]*"\(.*\)".*/\1/')
+      if [[ -n "$test_script" && "$test_script" != 'echo "Error: no test specified" && exit 1' ]]; then
+        test_cmd="npm test"
+      fi
+    elif [[ -f Cargo.toml ]]; then
+      test_cmd="cargo test"
+    elif [[ -f go.mod ]]; then
+      test_cmd="go test ./..."
+    elif [[ -f Makefile ]] && grep -q '^test[[:space:]]*:' Makefile; then
+      test_cmd="make test"
+    fi
+
+    if [[ -n "$test_cmd" ]]; then
+      info "Running: $test_cmd"
+      if $test_cmd; then
+        info "Baseline tests pass"
+      else
+        warn "Baseline tests failed"
+        echo "$wt_path"
+        exit 2
+      fi
+    else
+      warn "No test runner detected"
+      echo "$wt_path"
+      exit 2
+    fi
+  fi
+
+  echo "$wt_path"
+}
+
+# --- Subcommand routing ---
+
+COMMAND="${1:-status}"
+shift 2>/dev/null || true
+
+case "$COMMAND" in
+  status)   cmd_status "$@" ;;
+  commit)   cmd_commit "$@" ;;
+  split)    cmd_split "$@" ;;
+  stack)    cmd_stack "$@" ;;
+  worktree) cmd_worktree "$@" ;;
+  clean)    cmd_clean "$@" ;;
+  --help|-h) usage; exit 0 ;;
+  *)        die "Unknown command: $COMMAND. Run 'git-workflow --help' for usage." ;;
+esac

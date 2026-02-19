@@ -37,7 +37,7 @@ Execute plan by dispatching fresh subagent per task, with two-stage review after
 
 ## Cleanup
 
-After all tasks complete and final review passes, before calling `finishing-a-development-branch`:
+After all tasks complete and final review passes, before calling `git-workflow stack`:
 1. Optionally write `.claude/plans/<plan-id>/summary.md` with execution notes
 2. Delete the plan directory: `rm -rf .claude/plans/<plan-id>/`
 3. If deletion fails, warn but do not block
@@ -47,4 +47,4 @@ After all tasks complete and final review passes, before calling `finishing-a-de
 - [references/workflow-example.md](references/workflow-example.md) — full walkthrough
 - [references/advantages-and-costs.md](references/advantages-and-costs.md) — comparison vs manual/executing plans
 
-**Required skills:** using-git-worktrees, writing-plans, code-review, finishing-a-development-branch, test-driven-development
+**Required skills:** git-workflow, writing-plans, code-review, test-driven-development
