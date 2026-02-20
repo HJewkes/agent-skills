@@ -17,19 +17,23 @@ Scans:
 
 Session analysis (--session):
   Parses JSONL to extract per-turn token usage, context growth,
-  top spikes, and cache hit rates.
+  top spikes, cache hit rates, and preceding tool calls.
+  Requires jq.
 
 Options:
   --session [<path>]  Include session token analysis. Auto-detects
                       most recent JSONL if no path given.
   --flagged           Only show items with flags (LARGE, RULES, MCP)
-  --top <N>           Show only the top N entries by size
+  --top <N>           Number of top spikes to show (default: 5).
+                      Also limits inventory entries by size.
   --json              Output as JSON
   --help              Show this help message
 
 Exit codes:
   0  Success
   1  ~/.claude/skills/ not found
+  2  --session requires jq but jq is not installed
+  3  --session specified but no JSONL found
 EOF
 }
 
@@ -213,8 +217,10 @@ if [[ -f "$SETTINGS_FILE" ]]; then
 fi
 
 # Sort entries by size descending
-mapfile -t sorted < <(for e in "${entries[@]}"; do echo "$e"; done | sort -t$'\t' -k2 -rn)
-unset IFS
+sorted=()
+while IFS= read -r line; do
+  sorted+=("$line")
+done < <(for e in "${entries[@]}"; do echo "$e"; done | sort -t$'\t' -k2 -rn)
 
 # Compute totals
 total_always_on_words=0
@@ -267,10 +273,16 @@ session_start=0
 session_current=0
 session_growth_rate=0
 session_cache_hit_pct=0
-# Arrays for top spikes: "turn delta total" lines, sorted by delta desc
-session_spikes=()
+session_json=""
+SPIKE_COUNT="${TOP_N:-5}"
+[[ "$SPIKE_COUNT" -eq 0 ]] && SPIKE_COUNT=5
 
 if [[ "$DO_SESSION" == true ]]; then
+  if ! command -v jq &>/dev/null; then
+    echo "Error: --session requires jq but jq is not installed" >&2
+    exit 2
+  fi
+
   # Auto-detect session JSONL if not provided
   if [[ -z "$SESSION_PATH" ]]; then
     # shellcheck disable=SC2012  # ls -t needed for time-sorted output
@@ -278,48 +290,85 @@ if [[ "$DO_SESSION" == true ]]; then
   fi
 
   if [[ -n "$SESSION_PATH" && -f "$SESSION_PATH" ]]; then
-    # Extract unique turn totals: total input cache_create cache_read
-    turn_data=$(grep -o '"usage":{[^}]*}' "$SESSION_PATH" 2>/dev/null | awk -F'[,:]' '{
-      input=0; cache_create=0; cache_read=0
-      for(i=1;i<=NF;i++) {
-        if($i ~ /^"input_tokens"$/) { gsub(/[^0-9]/,"",$( i+1)); input=$(i+1) }
-        if($i ~ /^"cache_creation_input_tokens"$/) { gsub(/[^0-9]/,"",$( i+1)); cache_create=$(i+1) }
-        if($i ~ /^"cache_read_input_tokens"$/) { gsub(/[^0-9]/,"",$( i+1)); cache_read=$(i+1) }
+    # jq script: extract assistant turns with usage + preceding tool calls
+    # Produces one JSON object per assistant turn with token stats and
+    # the last tool_use name/input from the prior content blocks.
+    jq_err=$(mktemp)
+    session_json=$(jq -c -s --argjson top "$SPIKE_COUNT" '
+      # Collect assistant messages with usage data
+      [ .[] | select(.type == "assistant" and .usage != null) ] as $turns |
+
+      # Build per-turn records with preceding tool info
+      [ $turns | to_entries[] | {
+        idx: .key,
+        input: (.value.usage.input_tokens // 0),
+        cache_create: (.value.usage.cache_creation_input_tokens // 0),
+        cache_read: (.value.usage.cache_read_input_tokens // 0),
+        total: ((.value.usage.input_tokens // 0)
+              + (.value.usage.cache_creation_input_tokens // 0)
+              + (.value.usage.cache_read_input_tokens // 0)),
+        tool: (
+          [ (.value.message.content // [])[]
+            | select(.type == "tool_use") ]
+          | last
+          | if . then {name: .name, args: (.input | tostring | .[:80])} else null end
+        )
+      }] as $records |
+
+      # Aggregate stats
+      ($records | length) as $count |
+      ($records | first.total // 0) as $start |
+      ($records | last.total // 0) as $current |
+      (if $count > 1 then (($current - $start) / ($count - 1) | floor) else 0 end) as $growth |
+
+      # Cache hit percentage across all turns
+      ([$records[].cache_read] | add // 0) as $cr_sum |
+      ([$records[].total] | add // 0) as $t_sum |
+      (if $t_sum > 0 then ($cr_sum * 100 / $t_sum | floor) else 0 end) as $cache_pct |
+
+      # Compute deltas and find top spikes
+      [ $records | to_entries[]
+        | select(.key > 0)
+        | {
+            turn: (.value.idx + 1),
+            delta: (.value.total - ($records[.key - 1].total)),
+            total: .value.total,
+            preceding_tool: (
+              $records[.key - 1].tool.name // $records[.key].tool.name // "-"
+            ),
+            tool_args_summary: (
+              $records[.key - 1].tool.args // $records[.key].tool.args // ""
+            )
+          }
+      ] | sort_by(-.delta) | .[:$top] | map(. + {abs_delta: (if .delta < 0 then -.delta else .delta end)})
+        | sort_by(-.abs_delta) as $spikes |
+
+      {
+        turns: $count,
+        start_tokens: $start,
+        current_tokens: $current,
+        growth_per_turn: $growth,
+        cache_hit_pct: $cache_pct,
+        spikes: $spikes
       }
-      total = input + cache_create + cache_read
-      print total, input, cache_create, cache_read
-    }' | uniq)
+    ' "$SESSION_PATH" 2>"$jq_err")
+    jq_status=$?
+    if [[ $jq_status -ne 0 ]]; then
+      echo "Warning: jq failed (exit $jq_status) parsing session JSONL: $(cat "$jq_err")" >&2
+      session_json=""
+    fi
+    rm -f "$jq_err"
 
-    if [[ -n "$turn_data" ]]; then
-      session_turns=$(echo "$turn_data" | wc -l | tr -d ' ')
-
-      session_start=$(echo "$turn_data" | head -1 | awk '{print $1}')
-      session_current=$(echo "$turn_data" | tail -1 | awk '{print $1}')
-
-      if [[ $session_turns -gt 1 ]]; then
-        session_growth_rate=$(( (session_current - session_start) / (session_turns - 1) ))
-      fi
-
-      # Cache hit rate: sum(cache_read) / sum(total) across all turns
-      read -r total_sum cache_read_sum <<< "$(echo "$turn_data" | awk '{t+=$1; cr+=$4} END{print t, cr}')"
-      if [[ $total_sum -gt 0 ]]; then
-        session_cache_hit_pct=$(( cache_read_sum * 100 / total_sum ))
-      fi
-
-      # Top 5 spikes by absolute delta
-      session_spikes_raw=$(echo "$turn_data" | awk '{
-        n++; delta=$1-prev
-        if(n>1) print (delta<0?-delta:delta), delta, n, $1
-        prev=$1
-      }' | sort -rn | head -5)
-
-      while IFS= read -r line; do
-        [[ -z "$line" ]] && continue
-        session_spikes+=("$line")
-      done <<< "$session_spikes_raw"
+    if [[ -n "$session_json" && "$session_json" != "null" ]]; then
+      session_turns=$(echo "$session_json" | jq '.turns')
+      session_start=$(echo "$session_json" | jq '.start_tokens')
+      session_current=$(echo "$session_json" | jq '.current_tokens')
+      session_growth_rate=$(echo "$session_json" | jq '.growth_per_turn')
+      session_cache_hit_pct=$(echo "$session_json" | jq '.cache_hit_pct')
     fi
   else
-    echo "Warning: no session JSONL found" >&2
+    echo "Error: no session JSONL found" >&2
+    exit 3
   fi
 fi
 
@@ -344,15 +393,8 @@ if [[ "$JSON_OUTPUT" == true ]]; then
 
   if [[ "$DO_SESSION" == true && $session_turns -gt 0 ]]; then
     echo ","
-    printf '  "session": {"turns": %d, "start_tokens": %d, "current_tokens": %d, "growth_per_turn": %d, "cache_hit_pct": %d, "spikes": [' \
-      "$session_turns" "$session_start" "$session_current" "$session_growth_rate" "$session_cache_hit_pct"
-    first=true
-    for spike in "${session_spikes[@]}"; do
-      read -r _abs_delta delta turn total <<< "$spike"
-      [[ "$first" == true ]] && first=false || printf ","
-      printf '{"turn": %d, "delta": %d, "total": %d}' "$turn" "$delta" "$total"
-    done
-    echo "]}"
+    printf '  "session": %s' "$session_json"
+    echo ""
   fi
   echo ""
   echo "}"
@@ -387,13 +429,6 @@ else
     echo "  Cache hit rate: ${session_cache_hit_pct}%"
     echo ""
     echo "Top Context Spikes:"
-    i=0
-    for spike in "${session_spikes[@]}"; do
-      read -r _abs_delta delta turn total <<< "$spike"
-      i=$((i + 1))
-      sign="+"
-      [[ $delta -lt 0 ]] && sign=""
-      echo "  ${i}. Turn $turn: ${sign}${delta} tokens (total: ${total})"
-    done
+    echo "$session_json" | jq -r '.spikes | to_entries[] | "\(.key + 1). Turn \(.value.turn): \(if .value.delta >= 0 then "+\(.value.delta)" else "\(.value.delta)" end) tokens (total: \(.value.total)) — \(.value.preceding_tool)"'
   fi
 fi
