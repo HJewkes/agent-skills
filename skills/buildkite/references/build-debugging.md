@@ -6,43 +6,20 @@ Step-by-step workflow for diagnosing and resolving Buildkite build failures.
 
 ## Triage Workflow
 
-### Step 1: Find the failed build
+Run `buildkite triage <pipeline-slug>` to automatically fetch failed builds, analyze logs, and categorize failures.
 
 ```bash
-# List recent failed builds for a pipeline
-buildkite build list --pipeline SLUG --state failed
+# Triage the most recent failed build
+buildkite triage my-pipeline
 
-# Or find builds for a specific branch
-buildkite build list --pipeline SLUG --branch BRANCH_NAME
+# Triage a specific build
+buildkite triage my-pipeline --build 456
+
+# Triage the last 5 failed builds
+buildkite triage my-pipeline --last 5
 ```
 
-### Step 2: Inspect build details
-
-```bash
-# View the build — note which jobs failed
-buildkite build view BUILD_NUMBER --pipeline SLUG
-```
-
-### Step 3: Get the failed job log
-
-```bash
-# List jobs to find the failed one
-buildkite job list --build BUILD_NUMBER --pipeline SLUG
-
-# Read the job log
-buildkite job log JOB_ID
-```
-
-### Step 4: Download artifacts
-
-```bash
-# Test reports, coverage files, screenshots, etc.
-buildkite artifacts download --build BUILD_NUMBER --pipeline SLUG
-```
-
-### Step 5: Analyze and fix
-
-Read the log output. Cross-reference with the failure categories below to identify root cause.
+The triage command outputs a table of failed jobs with their failure category and the key log line that triggered the match. Use this to quickly identify root cause, then apply the remediation guidance below.
 
 ---
 
