@@ -14,7 +14,7 @@
         "skills/context-audit/references/audit-procedures.md",
         "tests/context-audit.bats"
       ],
-      "status": "pending"
+      "status": "completed"
     },
     {
       "id": "task-02",
@@ -28,7 +28,7 @@
         "skills/repo-ci/references/setup-new.md",
         "tests/repo-ci.bats"
       ],
-      "status": "pending"
+      "status": "completed"
     },
     {
       "id": "task-03",
