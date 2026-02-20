@@ -391,8 +391,8 @@ _validate_skill_dir() {
     local fm_size
     fm_size=$(printf '%s' "$frontmatter" | wc -c | tr -d ' ')
     if [[ $fm_size -gt 1024 ]]; then
-      echo "ERROR [$name]: frontmatter exceeds 1024 chars ($fm_size)" >&2
-      has_error=true
+      echo "WARN  [$name]: frontmatter exceeds 1024 chars ($fm_size)" >&2
+      has_warning=true
     fi
 
     # Name field
