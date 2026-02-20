@@ -61,10 +61,10 @@ for cmd in "${COMMANDS[@]}"; do
     # eval is intentional: commands may contain shell operators (pipes, redirects, &&)
     if output=$(eval "$cmd" 2>&1); then
         status="pass"
-        ((PASS++))
+        PASS=$((PASS + 1))
     else
         status="fail"
-        ((FAIL++))
+        FAIL=$((FAIL + 1))
     fi
     RESULT_STATUS+=("$status")
     RESULT_CMD+=("$cmd")

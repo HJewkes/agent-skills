@@ -45,7 +45,7 @@ cmd_layers() {
             [[ -z "$first_failure" ]] && first_failure=$layer
         fi
         printf "| %d | \`%s\` | %s | %d |\n" "$layer" "$cmd" "$status" "$ec"
-        ((layer++))
+        layer=$((layer + 1))
     done
 
     printf "\n"
