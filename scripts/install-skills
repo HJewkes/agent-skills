@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Install active skills by symlinking them to ~/.agents/skills/
+# Skips anything under skills/_archived/
+
+REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+SKILLS_SRC="$REPO_DIR/skills"
+SKILLS_DST="${HOME}/.agents/skills"
+
+mkdir -p "$SKILLS_DST"
+
+installed=0
+skipped=0
+
+for skill_dir in "$SKILLS_SRC"/*/; do
+  skill_name="$(basename "$skill_dir")"
+
+  # Skip archived skills and hidden directories
+  if [[ "$skill_name" == _archived ]] || [[ "$skill_name" == .* ]]; then
+    skipped=$((skipped + 1))
+    continue
+  fi
+
+  target="$SKILLS_DST/$skill_name"
+
+  if [[ -L "$target" ]]; then
+    rm "$target"
+  fi
+
+  ln -s "$skill_dir" "$target"
+  installed=$((installed + 1))
+done
+
+echo "Installed $installed skills to $SKILLS_DST (skipped $skipped)"
+
+# After archiving skills, you may need to clean up stale symlinks:
+# rm ~/.agents/skills/test-driven-development
+# rm ~/.agents/skills/systematic-debugging
+# rm ~/.agents/skills/verification-before-completion
+# rm ~/.agents/skills/using-superpowers
+# rm ~/.agents/skills/coordinator
+# rm ~/.agents/skills/executing-plans
+# rm ~/.agents/skills/subagent-driven-development
+# rm ~/.agents/skills/dispatching-parallel-agents
+# rm ~/.agents/skills/feature-agents
+# rm ~/.agents/skills/research
+# rm ~/.agents/skills/code-simplify
+# rm ~/.agents/skills/receiving-code-review
