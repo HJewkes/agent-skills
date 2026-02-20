@@ -5,7 +5,7 @@ setup() {
     AUDIT_CONTEXT="$REPO_ROOT/skills/context-audit/scripts/audit-context"
     FIXTURE_JSONL="$REPO_ROOT/tests/fixtures/sample-session.jsonl"
 
-    # Create a fake HOME with ~/.claude/skills/ for tests that scan skills
+    # Create a fake HOME with ~/.claude/skills/ for CI environments
     FAKE_HOME="$(mktemp -d)"
     mkdir -p "$FAKE_HOME/.claude/skills/test-skill"
     echo -e "---\nname: test-skill\ndescription: A test skill\n---\n# Test" \
@@ -30,16 +30,12 @@ setup() {
 }
 
 @test "audit-context --session with nonexistent file fails" {
-    run "$AUDIT_CONTEXT" --session /nonexistent/path.jsonl
+    HOME="$FAKE_HOME" run "$AUDIT_CONTEXT" --session /nonexistent/path.jsonl
     assert_failure
 }
 
 @test "audit-context --session auto-detect fails when no JSONL exists" {
-    local fake_home
-    fake_home="$(mktemp -d)"
-    mkdir -p "$fake_home/.claude/skills/placeholder"
-    echo "# Placeholder" > "$fake_home/.claude/skills/placeholder/SKILL.md"
-    HOME="$fake_home" run "$AUDIT_CONTEXT" --session
+    HOME="$FAKE_HOME" run "$AUDIT_CONTEXT" --session
     assert_failure
     assert_output --partial "no session JSONL found"
 }
@@ -50,7 +46,7 @@ setup() {
 }
 
 @test "audit-context --session parses fixture JSONL" {
-    run "$AUDIT_CONTEXT" --session "$FIXTURE_JSONL"
+    HOME="$FAKE_HOME" run "$AUDIT_CONTEXT" --session "$FIXTURE_JSONL"
     assert_success
     assert_output --partial "Session Analysis:"
     assert_output --partial "Turns: 4"
@@ -59,7 +55,7 @@ setup() {
 }
 
 @test "audit-context --session --json includes session object" {
-    run "$AUDIT_CONTEXT" --session "$FIXTURE_JSONL" --json
+    HOME="$FAKE_HOME" run "$AUDIT_CONTEXT" --session "$FIXTURE_JSONL" --json
     assert_success
     echo "$output" | python3 -m json.tool > /dev/null
     turns=$(echo "$output" | jq '.session.turns')
@@ -67,7 +63,7 @@ setup() {
 }
 
 @test "audit-context --session --json spikes contain preceding_tool" {
-    run "$AUDIT_CONTEXT" --session "$FIXTURE_JSONL" --json
+    HOME="$FAKE_HOME" run "$AUDIT_CONTEXT" --session "$FIXTURE_JSONL" --json
     assert_success
     tool=$(echo "$output" | jq -r '.session.spikes[0].preceding_tool')
     [ "$tool" != "null" ]
@@ -75,7 +71,7 @@ setup() {
 }
 
 @test "audit-context --session --top 2 limits spike count" {
-    run "$AUDIT_CONTEXT" --session "$FIXTURE_JSONL" --top 2 --json
+    HOME="$FAKE_HOME" run "$AUDIT_CONTEXT" --session "$FIXTURE_JSONL" --top 2 --json
     assert_success
     spike_count=$(echo "$output" | jq '.session.spikes | length')
     [ "$spike_count" -le 2 ]
@@ -84,7 +80,7 @@ setup() {
 @test "audit-context --session handles top-level usage layout" {
     # Legacy JSONL has .usage at top level instead of .message.usage
     local legacy="$REPO_ROOT/tests/fixtures/sample-session-legacy.jsonl"
-    run "$AUDIT_CONTEXT" --session "$legacy" --json
+    HOME="$FAKE_HOME" run "$AUDIT_CONTEXT" --session "$legacy" --json
     assert_success
     turns=$(echo "$output" | jq '.session.turns')
     [ "$turns" -eq 2 ]
