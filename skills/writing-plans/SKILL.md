@@ -7,11 +7,11 @@ description: Use when you have a spec or requirements for a multi-step task, bef
 
 ## Overview
 
-Write implementation plans as a **plan directory** — a tight orchestration plan for the coordinator plus per-task briefing files for agents. Assume agents have zero codebase context. Document everything they need: which files to touch, complete code, testing, validation criteria. DRY. YAGNI. TDD. Frequent commits.
+Write implementation plans as a **plan directory** — a tight orchestration plan plus per-task briefing files for agents. Assume agents have zero codebase context. Document everything they need: which files to touch, complete code, testing, validation criteria. DRY. YAGNI. TDD. Frequent commits.
 
 **Announce at start:** "I'm using the writing-plans skill to create the implementation plan."
 
-**Context:** This should be run in a dedicated worktree (created by brainstorming skill).
+**Context:** Can be invoked standalone or as a handoff from brainstorming. Works in the current directory or a dedicated worktree.
 
 **Save plans to:** `.claude/plans/YYYY-MM-DD-<feature-name>/`
 
@@ -37,21 +37,12 @@ Briefing file template: [references/briefing-template.md](references/briefing-te
 
 ## Execution Handoff
 
-After saving the plan directory, offer execution choice:
+After saving the plan directory, offer execution:
 
-**"Plan complete and saved to `.claude/plans/<plan-id>/`. Structure: `plan.md` (orchestration), `manifest.json` (metadata), `briefings/task-NN.md` (per-task specs). Two execution options:**
+**"Plan complete and saved to `.claude/plans/<plan-id>/`. How would you like to execute it?"**
 
-**1. Subagent-Driven (this session)** - I dispatch fresh subagent per task, review between tasks, fast iteration
+**Options:**
+1. **Execute now** — I'll dispatch agents per task with review between each (stays in this session)
+2. **Execute in separate session** — Open a new session and invoke plan-execution for batch execution
 
-**2. Parallel Session (separate)** - Open new session with executing-plans, batch execution with checkpoints
-
-**Which approach?"**
-
-**If Subagent-Driven chosen:**
-- **REQUIRED SUB-SKILL:** Use subagent-driven-development
-- Stay in this session
-- Fresh subagent per task + code review
-
-**If Parallel Session chosen:**
-- Guide them to open new session in worktree
-- **REQUIRED SUB-SKILL:** New session uses executing-plans
+**REQUIRED SUB-SKILL:** Use plan-execution for either option.

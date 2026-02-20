@@ -15,7 +15,7 @@ Dispatch specialized review agents matched to the situation. Choose a mode or le
 **Output:** High-confidence issues grouped by severity (Critical 90-100, Important 80-89)
 
 ### Deep Review
-**When:** After completing a feature, before merge, in subagent-driven-development loop
+**When:** After completing a feature, before merge, in plan-execution review loop
 **Dispatch:** deep-reviewer agent (full checklist with template placeholders)
 **Placeholders:** {WHAT_WAS_IMPLEMENTED}, {PLAN_OR_REQUIREMENTS}, {BASE_SHA}, {HEAD_SHA}, {DESCRIPTION}
 **Output:** Strengths, Issues (Critical/Important/Minor), Recommendations, Merge verdict
@@ -46,14 +46,20 @@ Dispatch specialized review agents matched to the situation. Choose a mode or le
 
 | Workflow | Review Mode |
 |----------|-------------|
-| subagent-driven-development (per-task) | Deep Review |
-| executing-plans (batch) | Deep Review |
+| plan-execution (per-task) | Deep Review |
+| plan-execution (batch) | Deep Review |
 | Before merge to main | Comprehensive Review |
 | Ad-hoc / when stuck | Quick Review |
 | Specific concern | Specialist Review |
 | GitHub PR review + posting | github-pr skill (automated PR review orchestrator) |
 
-For code simplification, see the code-simplify skill.
+## Simplification Mode
+
+After review, optionally dispatch a simplification pass to improve clarity, consistency, and maintainability without changing functionality. Read [references/simplifier.md](references/simplifier.md) for the full agent prompt, then spawn a `general-purpose` Task agent with that prompt targeting the reviewed files.
+
+## Handling Feedback
+
+When receiving code review feedback (from humans or other agents), follow the structured 6-step response pattern: READ, UNDERSTAND, VERIFY, EVALUATE, RESPOND, IMPLEMENT. No performative agreement — verify before implementing, push back with technical reasoning when warranted. See [references/handling-feedback.md](references/handling-feedback.md) for the full pattern, push-back criteria, YAGNI checks, and source-specific handling.
 
 ## Red Flags
 
@@ -73,3 +79,5 @@ For code simplification, see the code-simplify skill.
 | test-analyzer | [references/test-analyzer.md](references/test-analyzer.md) |
 | silent-failure-hunter | [references/silent-failure-hunter.md](references/silent-failure-hunter.md) |
 | type-design-analyzer | [references/type-design-analyzer.md](references/type-design-analyzer.md) |
+| simplifier | [references/simplifier.md](references/simplifier.md) |
+| handling-feedback | [references/handling-feedback.md](references/handling-feedback.md) |

@@ -26,7 +26,7 @@ Plan directories live in `.claude/plans/`.
 
 ## During Execution
 
-- The executing skill (subagent-driven-development, executing-plans, or coordinator) reads `plan.md` and `manifest.json` at startup
+- The executing skill (plan-execution) reads `plan.md` and `manifest.json` at startup
 - Agents read their own briefing file from `briefings/` — briefing content is never pasted inline into spawn prompts
 - The coordinator re-reads `manifest.json` from disk at wave boundaries to recover from context compaction
 - Task statuses in `manifest.json` are updated as tasks complete

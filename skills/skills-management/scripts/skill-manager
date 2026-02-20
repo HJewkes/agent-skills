@@ -233,6 +233,7 @@ _list_table() {
     [[ -d "$skill_dir" ]] || continue
     local name
     name=$(basename "$skill_dir")
+    [[ "$name" == _* || "$name" == .* ]] && continue
 
     local skill_type="original" has_script="no" source="-"
 
@@ -260,6 +261,7 @@ _list_json() {
     [[ -d "$skill_dir" ]] || continue
     local name
     name=$(basename "$skill_dir")
+    [[ "$name" == _* || "$name" == .* ]] && continue
 
     local skill_type="original" has_script=false source=""
 
@@ -327,6 +329,7 @@ EOF
   else
     for skill_dir in "$SKILLS_DIR"/*/; do
       [[ -d "$skill_dir" ]] || continue
+      [[ "$(basename "$skill_dir")" == _* || "$(basename "$skill_dir")" == .* ]] && continue
       local result=0
       _validate_skill_dir "$skill_dir" || result=$?
       if [[ $result -eq 1 ]]; then
