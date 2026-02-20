@@ -41,7 +41,7 @@ The script auto-detects the worktree directory (`.worktrees/` > `worktrees/` > C
 
 ## Integration
 
-**Called by:** brainstorming (Phase 4), subagent-driven-development, executing-plans
+**Called by:** brainstorming (Phase 4), plan-execution
 **Pairs with:** finishing-a-development-branch (cleanup after work complete)
 
 For detailed creation steps, setup commands, and example workflow, see [references/creation-steps.md](references/creation-steps.md).

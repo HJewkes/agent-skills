@@ -60,7 +60,7 @@ skills/<skill-name>/
 
 ## Naming Conventions
 
-- **Skills**: lowercase kebab-case directories (`dispatching-parallel-agents`, `test-driven-development`)
+- **Skills**: lowercase kebab-case directories (`plan-execution`, `code-review`)
 - **Agents**: lowercase kebab-case files with `.md` extension (`security-reviewer.md`)
 - **SKILL.md**: always uppercase filename, contains YAML frontmatter with `name` and `description`
 

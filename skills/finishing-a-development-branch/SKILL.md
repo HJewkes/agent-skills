@@ -62,5 +62,5 @@ See [references/option-details.md](references/option-details.md) for detailed ex
 
 ## Integration
 
-**Called by:** subagent-driven-development, executing-plans
+**Called by:** plan-execution
 **Pairs with:** using-git-worktrees (cleans up worktree created by that skill)
