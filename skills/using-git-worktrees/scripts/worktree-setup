@@ -84,6 +84,7 @@ elif [[ -d "$REPO_ROOT/worktrees" ]]; then
   echo "Detected: worktrees/" >&2
 elif [[ -f "$REPO_ROOT/CLAUDE.md" ]]; then
   # Check CLAUDE.md for worktree directory preference
+  # shellcheck disable=SC2016 -- single quotes intentional in sed pattern
   wt_dir=$(grep -i 'worktree.*director' "$REPO_ROOT/CLAUDE.md" 2>/dev/null | head -1 | sed 's/.*[`"]\([^`"]*\)[`"].*/\1/' || true)
   if [[ -n "$wt_dir" ]]; then
     WORKTREE_PARENT="$REPO_ROOT/$wt_dir"
@@ -101,7 +102,7 @@ fi
 mkdir -p "$WORKTREE_PARENT"
 
 # Safety check: verify project-local directories are gitignored
-WORKTREE_RELPATH="${WORKTREE_PARENT#$REPO_ROOT/}"
+WORKTREE_RELPATH="${WORKTREE_PARENT#"$REPO_ROOT"/}"
 if [[ "$WORKTREE_PARENT" == "$REPO_ROOT"/* ]]; then
   if ! git check-ignore -q "$WORKTREE_RELPATH" 2>/dev/null; then
     echo "Warning: $WORKTREE_RELPATH is not in .gitignore — adding it" >&2

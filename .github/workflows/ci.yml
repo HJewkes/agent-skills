@@ -41,8 +41,8 @@ jobs:
       - name: Lint bash scripts
         run: |
           mapfile -t all_files < <(
-            { find skills/*/scripts -type f ! -name '.gitkeep' 2>/dev/null
-              find . -name '*.sh' -not -path './.git/*' 2>/dev/null
+            { find skills/*/scripts -type f ! -name '.gitkeep' -not -path 'skills/_archived/*' 2>/dev/null
+              find . -name '*.sh' -not -path './.git/*' -not -path './skills/_archived/*' 2>/dev/null
             } | sort -u
           )
           if [ "${#all_files[@]}" -eq 0 ]; then
