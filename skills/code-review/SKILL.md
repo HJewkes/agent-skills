@@ -15,7 +15,7 @@ Dispatch specialized review agents matched to the situation. Choose a mode or le
 **Output:** High-confidence issues grouped by severity (Critical 90-100, Important 80-89)
 
 ### Deep Review
-**When:** After completing a feature, before merge, in subagent-driven-development loop
+**When:** After completing a feature, before merge, in plan-execution review loop
 **Dispatch:** deep-reviewer agent (full checklist with template placeholders)
 **Placeholders:** {WHAT_WAS_IMPLEMENTED}, {PLAN_OR_REQUIREMENTS}, {BASE_SHA}, {HEAD_SHA}, {DESCRIPTION}
 **Output:** Strengths, Issues (Critical/Important/Minor), Recommendations, Merge verdict
@@ -46,8 +46,8 @@ Dispatch specialized review agents matched to the situation. Choose a mode or le
 
 | Workflow | Review Mode |
 |----------|-------------|
-| subagent-driven-development (per-task) | Deep Review |
-| executing-plans (batch) | Deep Review |
+| plan-execution (per-task) | Deep Review |
+| plan-execution (batch) | Deep Review |
 | Before merge to main | Comprehensive Review |
 | Ad-hoc / when stuck | Quick Review |
 | Specific concern | Specialist Review |
