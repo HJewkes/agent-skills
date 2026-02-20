@@ -40,6 +40,12 @@ setup() {
     echo "$output" | python3 -m json.tool > /dev/null
 }
 
+@test "verify-criteria shows failure details in output" {
+    run "$VERIFY" "echo 'expected error' && false"
+    assert_failure
+    assert_output --partial "expected error"
+}
+
 @test "verify-criteria --json reports failure" {
     run "$VERIFY" --json "false"
     assert_failure

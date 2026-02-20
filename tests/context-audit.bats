@@ -74,3 +74,12 @@ setup() {
     spike_count=$(echo "$output" | jq '.session.spikes | length')
     [ "$spike_count" -le 2 ]
 }
+
+@test "audit-context --session handles top-level usage layout" {
+    # Legacy JSONL has .usage at top level instead of .message.usage
+    local legacy="$REPO_ROOT/tests/fixtures/sample-session-legacy.jsonl"
+    run "$AUDIT_CONTEXT" --session "$legacy" --json
+    assert_success
+    turns=$(echo "$output" | jq '.session.turns')
+    [ "$turns" -eq 2 ]
+}
