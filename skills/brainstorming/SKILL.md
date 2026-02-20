@@ -1,6 +1,6 @@
 ---
 name: brainstorming
-description: "You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation."
+description: "Use when designing features, planning components, or exploring approaches before implementation. Explores user intent, requirements and design through collaborative dialogue."
 ---
 
 # Brainstorming Ideas Into Designs
@@ -26,9 +26,16 @@ You MUST create a task for each of these items and complete them in order:
 1. **Explore project context** — check files, docs, recent commits
 2. **Ask clarifying questions** — one at a time, understand purpose/constraints/success criteria
 3. **Propose 2-3 approaches** — with trade-offs and your recommendation
-4. **Present design** — in sections scaled to their complexity, get user approval after each section
+4. **Present design** — in sections scaled to their complexity, including test strategy, error handling approach, and verification criteria (see Quality Principles below), get user approval after each section
 5. **Write design doc** — save to `.claude/plans/YYYY-MM-DD-<topic>-design.md` and commit
 6. **Transition to implementation** — invoke writing-plans skill to create implementation plan
+
+## Quality Principles
+
+Plans produced by this skill should address these concerns at design time:
+- Test strategy: [references/tdd-principles.md](references/tdd-principles.md)
+- Error handling & debugging approach: [references/debugging-principles.md](references/debugging-principles.md)
+- Verification criteria: [references/verification-principles.md](references/verification-principles.md)
 
 ## Process Flow
 

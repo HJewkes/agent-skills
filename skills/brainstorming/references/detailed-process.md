@@ -33,6 +33,15 @@
 - Invoke the writing-plans skill to create a detailed implementation plan
 - Do NOT invoke any other skill. writing-plans is the next step.
 
+## Design Quality
+
+When presenting the design, include sections for:
+- **Test strategy**: How will this be tested? What are the key test cases? (Consult tdd-principles.md)
+- **Error handling**: What can go wrong? How will errors be diagnosed? (Consult debugging-principles.md)
+- **Verification criteria**: How will we know this works? What specific commands/checks confirm success? (Consult verification-principles.md)
+
+These sections should be proportional to the design's complexity — a simple feature gets a few bullets, a complex system gets detailed plans.
+
 ## Key Principles
 
 - **One question at a time** — Don't overwhelm with multiple questions
