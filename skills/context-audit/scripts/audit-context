@@ -296,17 +296,21 @@ if [[ "$DO_SESSION" == true ]]; then
     jq_err=$(mktemp)
     session_json=$(jq -c -s --argjson top "$SPIKE_COUNT" '
       # Collect assistant messages with usage data
-      [ .[] | select(.type == "assistant" and .usage != null) ] as $turns |
+      # Support both top-level .usage and .message.usage layouts
+      [ .[] | select(.type == "assistant")
+            | . + { _usage: (.message.usage // .usage // null) }
+            | select(._usage | (. == null) | not)
+      ] as $turns |
 
       # Build per-turn records with preceding tool info
       [ $turns | to_entries[] | {
         idx: .key,
-        input: (.value.usage.input_tokens // 0),
-        cache_create: (.value.usage.cache_creation_input_tokens // 0),
-        cache_read: (.value.usage.cache_read_input_tokens // 0),
-        total: ((.value.usage.input_tokens // 0)
-              + (.value.usage.cache_creation_input_tokens // 0)
-              + (.value.usage.cache_read_input_tokens // 0)),
+        input: (.value._usage.input_tokens // 0),
+        cache_create: (.value._usage.cache_creation_input_tokens // 0),
+        cache_read: (.value._usage.cache_read_input_tokens // 0),
+        total: ((.value._usage.input_tokens // 0)
+              + (.value._usage.cache_creation_input_tokens // 0)
+              + (.value._usage.cache_read_input_tokens // 0)),
         tool: (
           [ (.value.message.content // [])[]
             | select(.type == "tool_use") ]

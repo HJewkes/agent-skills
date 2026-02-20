@@ -1,8 +1,8 @@
 {"type":"human","message":{"content":"Hello"}}
-{"type":"assistant","message":{"content":[{"type":"text","text":"Hi there!"}]},"usage":{"input_tokens":100,"cache_creation_input_tokens":50,"cache_read_input_tokens":20,"output_tokens":30}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"Hi there!"}],"usage":{"input_tokens":100,"cache_creation_input_tokens":50,"cache_read_input_tokens":20,"output_tokens":30}}}
 {"type":"human","message":{"content":"Read a file"}}
-{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/tmp/test.txt"}},{"type":"text","text":"Here is the file."}]},"usage":{"input_tokens":500,"cache_creation_input_tokens":100,"cache_read_input_tokens":80,"output_tokens":50}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/tmp/test.txt"}},{"type":"text","text":"Here is the file."}],"usage":{"input_tokens":500,"cache_creation_input_tokens":100,"cache_read_input_tokens":80,"output_tokens":50}}}
 {"type":"human","message":{"content":"Now grep something"}}
-{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Grep","input":{"pattern":"foo","path":"/tmp"}},{"type":"text","text":"Found results."}]},"usage":{"input_tokens":1200,"cache_creation_input_tokens":200,"cache_read_input_tokens":300,"output_tokens":80}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Grep","input":{"pattern":"foo","path":"/tmp"}},{"type":"text","text":"Found results."}],"usage":{"input_tokens":1200,"cache_creation_input_tokens":200,"cache_read_input_tokens":300,"output_tokens":80}}}
 {"type":"human","message":{"content":"Use a skill"}}
-{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"test-skill"}},{"type":"text","text":"Skill loaded."}]},"usage":{"input_tokens":800,"cache_creation_input_tokens":150,"cache_read_input_tokens":500,"output_tokens":40}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"test-skill"}},{"type":"text","text":"Skill loaded."}],"usage":{"input_tokens":800,"cache_creation_input_tokens":150,"cache_read_input_tokens":500,"output_tokens":40}}}
