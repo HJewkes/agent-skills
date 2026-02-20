@@ -26,6 +26,7 @@ Usage: repo-ci <command> [options]
 
 Commands:
   audit    Audit repository CI health against standards
+  verify   Compare current audit against a baseline
   setup    Generate CI/CD workflow files from templates
 
 Options:
@@ -55,8 +56,29 @@ Checks 6 areas:
   - Security scanning
 
 Options:
-  --json   Output results as JSON
-  --help   Show this help message
+  --json       Output results as JSON
+  --scorecard  Output results as markdown table
+  --help       Show this help message
+EOF
+}
+
+usage_verify() {
+  cat <<'EOF'
+Usage: repo-ci verify --baseline <file> [options]
+
+Compare current audit results against a saved baseline.
+
+Save a baseline with: repo-ci audit --json > baseline.json
+After making fixes, verify: repo-ci verify --baseline baseline.json
+
+Options:
+  --baseline <file>  Path to baseline JSON file (required)
+  --help             Show this help message
+
+Exit codes:
+  0  No regressions (all areas same or improved)
+  1  At least one area regressed
+  2  No regressions but unchanged gaps remain
 EOF
 }
 
@@ -121,10 +143,23 @@ escape_json() {
   printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/	/\\t/g' | awk '{printf "%s\\n", $0}' | sed '$ s/\\n$//'
 }
 
+# --- Status helpers ---
+
+status_label() {
+  local status="$1"
+  case "$status" in
+    pass) echo "PASS" ;;
+    warn) echo "WARN" ;;
+    fail) echo "FAIL" ;;
+    *)    echo "$status" ;;
+  esac
+}
+
 # --- Audit ---
 
 audit_repo() {
   local json_output="$1"
+  local scorecard_output="${2:-false}"
   local stack
   stack=$(detect_stack)
 
@@ -403,6 +438,24 @@ audit_repo() {
     done
     echo "  ]"
     echo "}"
+  elif [[ "$scorecard_output" == true ]]; then
+    local pass_count=0 warn_count=0 fail_count=0
+    echo "## CI Health Scorecard"
+    echo ""
+    echo "| Area | Status | Details |"
+    echo "|------|--------|---------|"
+    for i in "${!areas[@]}"; do
+      local label
+      label=$(status_label "${statuses[$i]}")
+      echo "| ${areas[$i]} | $label | ${details[$i]} |"
+      case "${statuses[$i]}" in
+        pass) pass_count=$(( pass_count + 1 )) ;;
+        warn) warn_count=$(( warn_count + 1 )) ;;
+        fail) fail_count=$(( fail_count + 1 )) ;;
+      esac
+    done
+    echo ""
+    echo "**Result: $pass_count PASS, $warn_count WARN, $fail_count FAIL**"
   else
     echo "${BOLD}CI Health Audit${RESET} (stack: $stack)"
     echo ""
@@ -428,6 +481,135 @@ audit_repo() {
   fi
 
   if [[ "$has_warnings" == true ]]; then
+    return 2
+  fi
+  return 0
+}
+
+# --- Verify ---
+
+verify_baseline() {
+  local baseline_file="$1"
+
+  if [[ ! -f "$baseline_file" ]]; then
+    die "Baseline file not found: $baseline_file"
+  fi
+
+  if ! command -v python3 &>/dev/null; then
+    die "python3 is required for JSON parsing"
+  fi
+
+  # Run fresh audit as JSON
+  local current_file
+  current_file=$(mktemp)
+  audit_repo true false > "$current_file" 2>/dev/null || true
+
+  # Compare using python3 with file paths
+  python3 - "$baseline_file" "$current_file" <<'PYEOF'
+import json, sys
+
+with open(sys.argv[1]) as f:
+    baseline = json.load(f)
+with open(sys.argv[2]) as f:
+    current = json.load(f)
+
+base_areas = {a['name']: a['status'] for a in baseline['areas']}
+curr_areas = {a['name']: a['status'] for a in current['areas']}
+
+rank = {'pass': 2, 'warn': 1, 'fail': 0}
+all_names = list(dict.fromkeys(list(base_areas.keys()) + list(curr_areas.keys())))
+
+fixed = 0
+regressed = 0
+remaining = 0
+
+rows = []
+for name in all_names:
+    before = base_areas.get(name, 'n/a')
+    after = curr_areas.get(name, 'n/a')
+    b_rank = rank.get(before, -1)
+    a_rank = rank.get(after, -1)
+    if a_rank > b_rank:
+        change = 'FIXED'
+        fixed += 1
+    elif a_rank < b_rank:
+        change = 'REGRESSED'
+        regressed += 1
+    elif after != 'pass':
+        change = '\u2014'
+        remaining += 1
+    else:
+        continue
+    rows.append((name, before.upper(), after.upper(), change))
+
+print('## Verification Report')
+print()
+print('| Area | Before | After | Change |')
+print('|------|--------|-------|--------|')
+for name, before, after, change in rows:
+    print(f'| {name} | {before} | {after} | {change} |')
+print()
+print(f'**{fixed} fixed, {regressed} regressed, {remaining} remaining**')
+
+if regressed > 0:
+    sys.exit(1)
+elif remaining > 0:
+    sys.exit(2)
+else:
+    sys.exit(0)
+PYEOF
+  local verify_exit=$?
+  rm -f "$current_file"
+  return "$verify_exit"
+}
+
+# --- Post-setup npm script check ---
+
+check_npm_scripts() {
+  local stack="$1"
+
+  if [[ "$stack" != "node" ]]; then
+    return 0
+  fi
+
+  if [[ ! -f "package.json" ]]; then
+    return 0
+  fi
+
+  local required_scripts=("test" "format:check" "test:coverage")
+  local check_icon_pass check_icon_fail
+
+  if [[ -t 1 ]] && command -v tput &>/dev/null; then
+    check_icon_pass="${GREEN}✓${RESET}"
+    check_icon_fail="${RED}✗${RESET}"
+  else
+    check_icon_pass="OK"
+    check_icon_fail="MISSING"
+  fi
+
+  echo ""
+  echo "Post-setup check:"
+  local has_missing=false
+  for script_name in "${required_scripts[@]}"; do
+    if python3 -c "
+import json, sys
+pkg = json.load(open('package.json'))
+scripts = pkg.get('scripts', {})
+sys.exit(0 if '$script_name' in scripts else 1)
+" 2>/dev/null; then
+      echo "  $check_icon_pass npm script '$script_name' found"
+    else
+      has_missing=true
+      local hint=""
+      case "$script_name" in
+        "format:check") hint=" — CI will fail without it" ;;
+        "test:coverage") hint=" — coverage job will fail" ;;
+      esac
+      echo "  $check_icon_fail npm script '$script_name' not found${hint}"
+    fi
+  done
+
+  if [[ "$has_missing" == true ]]; then
     return 2
   fi
   return 0
@@ -596,6 +778,7 @@ setup_repo() {
     for f in "${created_files[@]}"; do
       echo "  - $f"
     done
+    check_npm_scripts "$stack" || true
   fi
 }
 
@@ -655,14 +838,33 @@ shift
 case "$COMMAND" in
   audit)
     JSON_OUTPUT=false
+    SCORECARD_OUTPUT=false
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --json) JSON_OUTPUT=true; shift ;;
+        --scorecard) SCORECARD_OUTPUT=true; shift ;;
         --help) usage_audit; exit 0 ;;
         *) die "Unknown option for audit: $1" ;;
       esac
     done
-    audit_repo "$JSON_OUTPUT"
+    if [[ "$JSON_OUTPUT" == true ]] && [[ "$SCORECARD_OUTPUT" == true ]]; then
+      die "--json and --scorecard are mutually exclusive"
+    fi
+    audit_repo "$JSON_OUTPUT" "$SCORECARD_OUTPUT"
+    ;;
+  verify)
+    BASELINE=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --baseline) BASELINE="$2"; shift 2 ;;
+        --help) usage_verify; exit 0 ;;
+        *) die "Unknown option for verify: $1" ;;
+      esac
+    done
+    if [[ -z "$BASELINE" ]]; then
+      die "Missing required option: --baseline <file>"
+    fi
+    verify_baseline "$BASELINE"
     ;;
   setup)
     DRY_RUN=false

@@ -1,0 +1,4 @@
+{"type":"human","message":{"content":"Hello"}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"Hi there!"}]},"usage":{"input_tokens":100,"cache_creation_input_tokens":50,"cache_read_input_tokens":20,"output_tokens":30}}
+{"type":"human","message":{"content":"Read a file"}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/tmp/test.txt"}},{"type":"text","text":"Here is the file."}]},"usage":{"input_tokens":500,"cache_creation_input_tokens":100,"cache_read_input_tokens":80,"output_tokens":50}}

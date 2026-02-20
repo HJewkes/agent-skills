@@ -54,65 +54,39 @@ Compute totals:
 - **Always-on context**: sum of all rules/ files + CLAUDE.md files + plugin/MCP overhead estimate (200 words per MCP server, 50 words per plugin for tool descriptions)
 - **On-trigger context**: average SKILL.md size across all skills
 
-## Session Token Analysis Procedure
+## Session Token Analysis
 
-### Step 1: Find the Active Session
+> **Automation:** `scripts/audit-context --session [path]` performs the full analysis below. Use `--json` for structured output. Use `--top N` to control spike count.
 
-The current session JSONL is at a path like:
-```
-~/.claude/projects/{project-hash}/{session-id}.jsonl
-```
+### What It Measures
 
-Use Bash to find the most recently modified JSONL:
+- **Per-turn token usage**: input tokens, cache creation, and cache read tokens for each assistant turn
+- **Context growth**: delta between consecutive turns, identifying where context expands
+- **Top spikes**: largest input token jumps, correlated with the preceding tool call (Read, Skill, MCP, etc.)
+- **Cache hit rate**: percentage of input tokens served from cache across the session
+
+### Running the Analysis
+
+Auto-detect the most recent session:
 ```bash
-ls -t ~/.claude/projects/*//*.jsonl 2>/dev/null | head -1
+audit-context --session
 ```
 
-If the user is asking about a specific session or the path doesn't resolve, check `~/.claude/projects/` subdirectories.
-
-### Step 2: Extract Token Usage
-
-Each assistant message in the JSONL has a `usage` field. Use Bash with grep/jq:
-
+Analyze a specific session file:
 ```bash
-grep -o '"usage":{[^}]*}' <session-file> | head -50
+audit-context --session ~/.claude/projects/{hash}/{id}.jsonl
 ```
 
-Or more precisely with jq if available:
+JSON output for programmatic use:
 ```bash
-cat <session-file> | jq -c 'select(.type == "assistant") | {turn: .turn, input: .usage.input_tokens, cache_read: .usage.cache_read_input_tokens, output: .usage.output_tokens}' 2>/dev/null
+audit-context --session --json
 ```
 
-### Step 3: Calculate Deltas
+### Interpreting the Output
 
-For each consecutive pair of turns, compute:
-- `delta = current.input_tokens - previous.input_tokens`
-- Sort by delta descending
-- Take top 5
-
-### Step 4: Correlate with Tool Calls
-
-For each spike, look at the tool_use blocks in the preceding messages:
-- File reads (Read tool) — note file path and approximate size
-- Skill invocations (Skill tool) — note which skill loaded
-- MCP tool calls — note which server
-- Grep/Glob results — note result count
-
-### Step 5: Format Session Report
-
-```
-### Session Analysis
-Total turns: N
-Starting context: X tokens
-Current context: Y tokens
-Growth rate: ~Z tokens/turn
-
-Top Context Spikes:
-1. Turn 5 → 6: +15,200 tokens — Skill: tailwind loaded
-2. Turn 8 → 9: +12,000 tokens — Read: src/components/Dashboard.tsx (480 lines)
-3. Turn 12 → 13: +8,500 tokens — MCP: playwright snapshot
-...
-```
+- **Growth rate**: tokens added per turn on average. Over 5K/turn suggests large file reads or verbose tool output.
+- **Top spikes**: each spike shows the token delta and the tool call that likely caused it. Large Read operations and Skill loads are the most common causes.
+- **Cache hit rate**: higher is better. Below 30% means the context is changing too frequently for caching to help. Above 50% indicates good cache reuse.
 
 ## Scoring Rubric
 

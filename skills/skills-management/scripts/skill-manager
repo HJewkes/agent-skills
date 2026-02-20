@@ -286,16 +286,19 @@ cmd_validate() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --help) cat <<'EOF'
-Usage: skill-manager validate [<name>]
+Usage: skill-manager validate [<name-or-path>]
 
 Validate skill conventions. Validates all skills if no name given.
+Accepts a skill name (looked up in skills/) or a directory path.
 
 Checks:
   - Directory name is kebab-case
   - SKILL.md exists with valid frontmatter
-  - Description starts with "Use when"
-  - Name field matches directory name
-  - Scripts are executable
+  - Name: max 64 chars, no consecutive hyphens
+  - Description: max 1024 chars, starts with "Use when"
+  - Frontmatter under 1024 chars
+  - Body under 500 lines (warn)
+  - Scripts: executable, correct shebang, --help support
   - No cross-skill relative paths (../../)
   - No hardcoded ~/.agents/ paths
 
@@ -311,16 +314,21 @@ EOF
   done
 
   if [[ -n "$target" ]]; then
-    skill_exists "$target" || die "Skill not found: $target"
-    _validate_skill "$target"
+    local dir
+    if [[ -d "$target" ]]; then
+      dir="$target"
+    elif skill_exists "$target"; then
+      dir="$SKILLS_DIR/$target"
+    else
+      die "Skill not found: $target"
+    fi
+    _validate_skill_dir "$dir"
     errors=$?
   else
     for skill_dir in "$SKILLS_DIR"/*/; do
       [[ -d "$skill_dir" ]] || continue
-      local name
-      name=$(basename "$skill_dir")
       local result=0
-      _validate_skill "$name" || result=$?
+      _validate_skill_dir "$skill_dir" || result=$?
       if [[ $result -eq 1 ]]; then
         errors=$((errors + 1))
       elif [[ $result -eq 2 ]]; then
@@ -341,25 +349,35 @@ EOF
   fi
 }
 
-_validate_skill() {
-  local name="$1"
-  local dir="$SKILLS_DIR/$name"
+_validate_skill_dir() {
+  local dir="${1%/}"
+  local name
+  name=$(basename "$dir")
   local has_error=false has_warning=false
 
-  # Check kebab-case
+  # ── Directory name checks ──
   if ! is_kebab_case "$name"; then
     echo "ERROR [$name]: directory name not kebab-case" >&2
     has_error=true
   fi
 
-  # Check SKILL.md exists
-  if [[ ! -f "$dir/SKILL.md" ]]; then
-    echo "ERROR [$name]: SKILL.md not found" >&2
+  if [[ ${#name} -gt 64 ]]; then
+    echo "ERROR [$name]: name exceeds 64 characters (${#name})" >&2
     has_error=true
-    [[ "$has_error" == true ]] && return 1 || return 0
   fi
 
-  # Parse frontmatter
+  if [[ "$name" == *--* ]]; then
+    echo "ERROR [$name]: name contains consecutive hyphens" >&2
+    has_error=true
+  fi
+
+  # ── SKILL.md existence ──
+  if [[ ! -f "$dir/SKILL.md" ]]; then
+    echo "ERROR [$name]: SKILL.md not found" >&2
+    return 1
+  fi
+
+  # ── Parse frontmatter ──
   local frontmatter=""
   if head -1 "$dir/SKILL.md" | grep -q "^---"; then
     frontmatter=$(sed -n '2,/^---$/p' "$dir/SKILL.md" | sed '$d')
@@ -369,61 +387,106 @@ _validate_skill() {
     echo "ERROR [$name]: no YAML frontmatter found" >&2
     has_error=true
   else
-    # Check frontmatter size
+    # Frontmatter size
     local fm_size
-    fm_size=$(echo "$frontmatter" | wc -c | tr -d ' ')
+    fm_size=$(printf '%s' "$frontmatter" | wc -c | tr -d ' ')
     if [[ $fm_size -gt 1024 ]]; then
-      echo "ERROR [$name]: frontmatter exceeds 1024 chars ($fm_size)" >&2
-      has_error=true
+      echo "WARN  [$name]: frontmatter exceeds 1024 chars ($fm_size)" >&2
+      has_warning=true
     fi
 
-    # Check name field exists and matches
+    # Name field
     local fm_name
     fm_name=$(echo "$frontmatter" | grep "^name:" | sed 's/^name:[[:space:]]*//')
     if [[ -z "$fm_name" ]]; then
       echo "ERROR [$name]: frontmatter missing 'name' field" >&2
       has_error=true
-    elif [[ "$fm_name" != "$name" ]]; then
-      echo "WARN  [$name]: frontmatter name '$fm_name' doesn't match directory '$name'" >&2
-      has_warning=true
+    else
+      if [[ "$fm_name" != "$name" ]]; then
+        echo "WARN  [$name]: frontmatter name '$fm_name' doesn't match directory '$name'" >&2
+        has_warning=true
+      fi
+      if ! [[ "$fm_name" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]]; then
+        echo "ERROR [$name]: name field not valid kebab-case" >&2
+        has_error=true
+      fi
+      if [[ ${#fm_name} -gt 64 ]]; then
+        echo "ERROR [$name]: name field exceeds 64 characters (${#fm_name})" >&2
+        has_error=true
+      fi
+      if [[ "$fm_name" == *--* ]]; then
+        echo "ERROR [$name]: name field contains consecutive hyphens" >&2
+        has_error=true
+      fi
     fi
 
-    # Check name field characters
-    if [[ -n "$fm_name" ]] && ! [[ "$fm_name" =~ ^[a-zA-Z0-9-]+$ ]]; then
-      echo "ERROR [$name]: name field contains invalid characters (use letters, numbers, hyphens)" >&2
-      has_error=true
-    fi
-
-    # Check description field
+    # Description field
     local fm_desc
     fm_desc=$(echo "$frontmatter" | grep "^description:" | sed 's/^description:[[:space:]]*//')
     if [[ -z "$fm_desc" ]]; then
       echo "ERROR [$name]: frontmatter missing 'description' field" >&2
       has_error=true
-    elif ! echo "$fm_desc" | grep -qi "^use when"; then
-      echo "WARN  [$name]: description should start with 'Use when'" >&2
+    else
+      if ! echo "$fm_desc" | grep -qi "^use when"; then
+        echo "WARN  [$name]: description should start with 'Use when'" >&2
+        has_warning=true
+      fi
+      if [[ ${#fm_desc} -gt 1024 ]]; then
+        echo "WARN  [$name]: description exceeds 1024 characters (${#fm_desc})" >&2
+        has_warning=true
+      fi
+    fi
+  fi
+
+  # ── Body length check ──
+  local body_start
+  body_start=$(awk '/^---$/{n++; if(n==2){print NR; exit}}' "$dir/SKILL.md")
+  if [[ -n "$body_start" ]]; then
+    local total_lines body_lines
+    total_lines=$(wc -l < "$dir/SKILL.md" | tr -d ' ')
+    body_lines=$((total_lines - body_start))
+    if [[ $body_lines -gt 500 ]]; then
+      echo "WARN  [$name]: body is $body_lines lines (target under 500)" >&2
       has_warning=true
     fi
   fi
 
-  # Check scripts are executable
+  # ── Script convention checks ──
   if [[ -d "$dir/scripts" ]]; then
     for script in "$dir/scripts"/*; do
       [[ -f "$script" ]] || continue
+      local sname
+      sname=$(basename "$script")
+
       if [[ ! -x "$script" ]]; then
-        echo "WARN  [$name]: script '$(basename "$script")' is not executable" >&2
+        echo "WARN  [$name]: script '$sname' is not executable" >&2
         has_warning=true
+      fi
+
+      # Shebang check
+      local shebang
+      shebang=$(head -1 "$script")
+      if [[ "$shebang" != "#!/usr/bin/env bash" ]]; then
+        echo "WARN  [$name]: script '$sname' missing '#!/usr/bin/env bash' shebang" >&2
+        has_warning=true
+      fi
+
+      # --help support check (only if executable)
+      if [[ -x "$script" ]]; then
+        if ! "$script" --help &>/dev/null; then
+          echo "WARN  [$name]: script '$sname' does not support --help" >&2
+          has_warning=true
+        fi
       fi
     done
   fi
 
-  # Check for cross-skill relative paths (portability issue)
+  # ── Content checks ──
   if grep -r '\.\./\.\.' "$dir" --include="*.md" -l 2>/dev/null | grep -q .; then
     echo "WARN  [$name]: contains cross-skill relative paths (../../)" >&2
     has_warning=true
   fi
 
-  # Check for hardcoded ~/.agents/ paths
   if grep -r "$HOME/.agents/" "$dir" --include="*.md" -l 2>/dev/null | grep -q .; then
     echo "WARN  [$name]: contains hardcoded ~/.agents/ paths" >&2
     has_warning=true

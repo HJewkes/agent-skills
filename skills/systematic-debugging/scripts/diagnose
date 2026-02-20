@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: diagnose <command> [args...]
+
+Commands:
+  layers "cmd1" "cmd2" ...    Run commands sequentially, report where chain breaks
+  test-isolation "cmd" "pat"  Run test command, grep output for pattern
+
+Options:
+  --help    Show this help
+
+Exit codes:
+  0  All layers passed / pattern not found
+  1  A layer failed / pattern found
+  2  Usage error
+EOF
+}
+
+cmd_layers() {
+    if [[ $# -eq 0 ]]; then
+        echo "Error: No commands specified" >&2
+        echo "Usage: diagnose layers \"cmd1\" \"cmd2\" ..." >&2
+        exit 2
+    fi
+
+    printf "## Layer Diagnosis\n\n"
+    printf "| Layer | Command | Status | Exit Code |\n"
+    printf "|-------|---------|--------|-----------|\n"
+
+    local layer=1
+    local first_failure=""
+    for cmd in "$@"; do
+        local ec=0
+        local status
+        # eval is used here because commands arrive as quoted strings
+        # that may contain pipes, redirects, or variable expansions
+        if eval "$cmd" >/dev/null 2>&1; then
+            status="PASS"
+        else
+            ec=$?
+            status="FAIL"
+            [[ -z "$first_failure" ]] && first_failure=$layer
+        fi
+        printf "| %d | \`%s\` | %s | %d |\n" "$layer" "$cmd" "$status" "$ec"
+        layer=$((layer + 1))
+    done
+
+    printf "\n"
+    if [[ -n "$first_failure" ]]; then
+        printf "**First failure: Layer %d** — investigate this boundary.\n" "$first_failure"
+        exit 1
+    else
+        printf "**All layers passed.**\n"
+        exit 0
+    fi
+}
+
+cmd_test_isolation() {
+    if [[ $# -lt 2 ]]; then
+        echo "Error: Requires test command and grep pattern" >&2
+        echo "Usage: diagnose test-isolation \"test-cmd\" \"pattern\"" >&2
+        exit 2
+    fi
+
+    local test_cmd="$1"
+    local pattern="$2"
+
+    printf "## Test Isolation\n\n"
+    printf "Command: \`%s\`\n" "$test_cmd"
+    printf "Pattern: \`%s\`\n\n" "$pattern"
+
+    local output
+    # eval is used because the test command may contain pipes or redirects
+    output=$(eval "$test_cmd" 2>&1) || true
+
+    local matches
+    matches=$(echo "$output" | grep -n "$pattern" 2>/dev/null) || true
+
+    if [[ -z "$matches" ]]; then
+        printf "**Pattern not found in output.** No isolation issue detected.\n"
+        exit 0
+    else
+        local count
+        count=$(echo "$matches" | wc -l | tr -d ' ')
+        printf "**Found %s match(es):**\n\n" "$count"
+        printf "\`\`\`\n%s\n\`\`\`\n" "$matches"
+        exit 1
+    fi
+}
+
+[[ $# -gt 0 ]] || { usage; exit 2; }
+
+case "$1" in
+    layers)         shift; cmd_layers "$@" ;;
+    test-isolation) shift; cmd_test_isolation "$@" ;;
+    --help)         usage; exit 0 ;;
+    *)              echo "Unknown command: $1" >&2; usage >&2; exit 2 ;;
+esac

@@ -62,6 +62,9 @@ git commit -m "feat: [specific commit message]"
 
 ## Success Criteria
 
+Verify all at once: `verify-criteria "npm test -- path/to/test.ts" "npm run lint -- --quiet" "npm run typecheck"`
+
+Or individually:
 - [ ] Tests pass: `npm test -- path/to/test.ts`
 - [ ] No new lint warnings: `npm run lint -- --quiet`
 - [ ] Types check: `npm run typecheck`

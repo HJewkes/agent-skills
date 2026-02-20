@@ -28,39 +28,21 @@ You MUST complete each phase before proceeding to the next.
 
    **WHEN system has multiple components (CI -> build -> signing, API -> service -> database):**
 
-   **BEFORE proposing fixes, add diagnostic instrumentation:**
-   ```
-   For EACH component boundary:
-     - Log what data enters component
-     - Log what data exits component
-     - Verify environment/config propagation
-     - Check state at each layer
+   **BEFORE proposing fixes, gather evidence showing WHERE it breaks.**
 
-   Run once to gather evidence showing WHERE it breaks
-   THEN analyze evidence to identify failing component
-   THEN investigate that specific component
+   For multi-component systems, use `diagnose layers` to systematically check each boundary:
+   ```
+   diagnose layers "echo IDENTITY: ${IDENTITY:+SET}" "env | grep IDENTITY" "security list-keychains" "codesign --sign ..."
    ```
 
-   **Example (multi-layer system):**
-   ```bash
-   # Layer 1: Workflow
-   echo "=== Secrets available in workflow: ==="
-   echo "IDENTITY: ${IDENTITY:+SET}${IDENTITY:-UNSET}"
+   This runs each command sequentially and reports where the chain first fails, revealing which layer breaks (e.g., secrets -> workflow OK, workflow -> build FAIL).
 
-   # Layer 2: Build script
-   echo "=== Env vars in build script: ==="
-   env | grep IDENTITY || echo "IDENTITY not in environment"
-
-   # Layer 3: Signing script
-   echo "=== Keychain state: ==="
-   security list-keychains
-   security find-identity -v
-
-   # Layer 4: Actual signing
-   codesign --sign "$IDENTITY" --verbose=4 "$APP"
+   To find which test produces unwanted side effects:
+   ```
+   diagnose test-isolation "npm test 2>&1" "DEBUG git init"
    ```
 
-   **This reveals:** Which layer fails (secrets -> workflow OK, workflow -> build FAIL)
+   Then analyze the evidence to identify the failing component and investigate that specific component.
 
 5. **Trace Data Flow**
 
