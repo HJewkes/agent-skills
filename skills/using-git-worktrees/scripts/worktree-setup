@@ -84,7 +84,7 @@ elif [[ -d "$REPO_ROOT/worktrees" ]]; then
   echo "Detected: worktrees/" >&2
 elif [[ -f "$REPO_ROOT/CLAUDE.md" ]]; then
   # Check CLAUDE.md for worktree directory preference
-  # shellcheck disable=SC2016 -- single quotes intentional in sed pattern
+  # shellcheck disable=SC2016
   wt_dir=$(grep -i 'worktree.*director' "$REPO_ROOT/CLAUDE.md" 2>/dev/null | head -1 | sed 's/.*[`"]\([^`"]*\)[`"].*/\1/' || true)
   if [[ -n "$wt_dir" ]]; then
     WORKTREE_PARENT="$REPO_ROOT/$wt_dir"
