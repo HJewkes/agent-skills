@@ -177,6 +177,11 @@ run_triage() {
     esac
   done
 
+  if ! command -v bk >/dev/null 2>&1; then
+    echo "Error: bk CLI not installed. See https://github.com/buildkite/cli" >&2
+    exit 1
+  fi
+
   if [[ -n "$build_number" ]]; then
     triage_build "$pipeline" "$build_number"
   else
@@ -200,22 +205,6 @@ run_triage() {
 
 if [[ "${1:-}" == "triage" ]]; then
   shift
-
-  # Ensure setup before triage (unless help/no-args which don't need bk)
-  if [[ $# -gt 0 && "${1:-}" != "--help" && "${1:-}" != "-h" ]]; then
-    if ! command -v bk >/dev/null 2>&1; then
-      echo "Error: 'bk' CLI is not installed or not in PATH." >&2
-      echo "Install it from https://github.com/buildkite/cli and try again." >&2
-      exit 1
-    fi
-    if [[ ! -f "$ENV_FILE" ]]; then
-      echo "First run detected — launching setup..." >&2
-      "$SCRIPT_DIR/setup"
-      [[ -f "$ENV_FILE" ]] || { echo "Setup did not complete. Run: $SCRIPT_DIR/setup" >&2; exit 1; }
-    fi
-    # shellcheck source=/dev/null
-    source "$ENV_FILE"
-  fi
 
   run_triage "$@"
   exit $?

@@ -4,6 +4,12 @@ setup() {
     load 'test_helper'
     AUDIT_CONTEXT="$REPO_ROOT/skills/context-audit/scripts/audit-context"
     FIXTURE_JSONL="$REPO_ROOT/tests/fixtures/sample-session.jsonl"
+
+    # Create a fake HOME with ~/.claude/skills/ for tests that scan skills
+    FAKE_HOME="$(mktemp -d)"
+    mkdir -p "$FAKE_HOME/.claude/skills/test-skill"
+    echo -e "---\nname: test-skill\ndescription: A test skill\n---\n# Test" \
+        > "$FAKE_HOME/.claude/skills/test-skill/SKILL.md"
 }
 
 @test "audit-context --help prints usage" {
@@ -13,12 +19,12 @@ setup() {
 }
 
 @test "audit-context runs without error" {
-    run "$AUDIT_CONTEXT"
+    HOME="$FAKE_HOME" run "$AUDIT_CONTEXT"
     assert_success
 }
 
 @test "audit-context --json produces valid JSON" {
-    run "$AUDIT_CONTEXT" --json
+    HOME="$FAKE_HOME" run "$AUDIT_CONTEXT" --json
     assert_success
     echo "$output" | python3 -m json.tool > /dev/null
 }
