@@ -45,9 +45,9 @@ repo-ci setup --preset node
 
 Exit code 0 = files written successfully.
 
-## Step 4: Post-Setup Checklist
+The setup command automatically checks for required npm scripts (Node projects only) and warns about any that are missing. Review the post-setup output and add any missing scripts to `package.json` before pushing.
 
-Work through these steps after the files are generated:
+## Step 4: Post-Setup Checklist
 
 ### 4a. CODECOV_TOKEN Secret
 
@@ -68,18 +68,7 @@ git push
 
 Open the Actions tab in GitHub and confirm the CI workflow runs without errors on the push.
 
-### 4c. Check Missing npm Scripts (Node only)
-
-The CI workflow requires these scripts in `package.json`. Verify they exist:
-
-```bash
-npm run format:check   # Prettier format check
-npm run test:coverage  # Tests with coverage (or vitest run --coverage)
-```
-
-If either is missing, add them to `package.json` before pushing. See [standards.md](standards.md) for the expected commands.
-
-### 4d. Confirm Branch Rulesets
+### 4c. Confirm Branch Rulesets
 
 Branch protection rulesets cannot be configured by the script — they must be set up in GitHub UI. Verify they are active:
 
