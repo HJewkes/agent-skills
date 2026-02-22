@@ -25,6 +25,7 @@ usage() {
 Usage: repo-ci <command> [options]
 
 Commands:
+  init     Create a GitHub repo and fully configure it
   audit    Audit repository CI health against standards
   verify   Compare current audit against a baseline
   setup    Generate CI/CD workflow files from templates
@@ -92,6 +93,25 @@ Options:
   --dry-run          Print generated files to stdout without writing
   --preset <stack>   Stack preset: node or python (default: auto-detect)
   --help             Show this help message
+EOF
+}
+
+usage_init() {
+  cat <<'EOF'
+Usage: repo-ci init [options]
+
+Create a GitHub repository and fully configure it.
+
+Creates the repo, configures settings (merge strategy, branch deletion,
+wiki, discussions), sets up branch rulesets, generates CI/CD workflows,
+and pushes the initial content.
+
+Options:
+  --private        Create as private repo (default: public)
+  --preset <stack> Stack preset: node or python (default: auto-detect)
+  --dry-run        Show what would happen without executing
+  --skip-ci        Skip CI workflow generation
+  --help           Show this help message
 EOF
 }
 
@@ -888,6 +908,109 @@ ENDJSON
   fi
 }
 
+# --- Init ---
+
+init_repo() {
+  local dry_run="$1"
+  local preset="$2"
+  local visibility="$3"
+  local skip_ci="$4"
+
+  local stack
+  if [[ -n "$preset" ]]; then
+    stack="$preset"
+  else
+    stack=$(detect_stack)
+  fi
+
+  # Verify we have a git repo locally
+  if ! git rev-parse --is-inside-work-tree &>/dev/null; then
+    die "Not inside a git repository. Run 'git init' first."
+  fi
+
+  # Check for at least one commit
+  if ! git rev-parse HEAD &>/dev/null 2>&1; then
+    die "No commits yet. Make an initial commit first."
+  fi
+
+  local repo_name
+  repo_name=$(basename "$(git rev-parse --show-toplevel)")
+
+  if [[ "$dry_run" == true ]]; then
+    echo "${BOLD}repo-ci init (dry run)${RESET}"
+    echo ""
+    echo "Would create GitHub repo: $repo_name ($visibility)"
+    echo "Would configure repo settings:"
+    echo "  - allow_squash_merge: true"
+    echo "  - allow_merge_commit: false"
+    echo "  - allow_rebase_merge: true"
+    echo "  - delete_branch_on_merge: true"
+    echo "  - has_wiki: true"
+    echo "  - has_discussions: true"
+    echo "Would create branch ruleset (protect default branch)"
+    if [[ "$visibility" == "private" ]]; then
+      echo "  ${YELLOW}Note: Rulesets require GitHub Pro/Team for private repos${RESET}"
+    fi
+    if [[ "$skip_ci" != true ]]; then
+      echo "Would generate CI/CD workflows (stack: $stack)"
+      echo ""
+      setup_repo true "$preset"
+    else
+      echo "Skipping CI workflow generation (--skip-ci)"
+    fi
+    return 0
+  fi
+
+  # Create the GitHub repo
+  echo "${BOLD}Creating GitHub repository...${RESET}"
+  local gh_create_args=(gh repo create "$repo_name" "--$visibility" --source . --push)
+  if ! "${gh_create_args[@]}"; then
+    die "Failed to create GitHub repository"
+  fi
+
+  # Ensure default branch is main
+  local default_branch
+  default_branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "main")
+  if [[ "$default_branch" != "main" ]]; then
+    echo "Renaming default branch from $default_branch to main..."
+    git branch -m "$default_branch" main
+    git push origin main
+    gh repo edit --default-branch main
+  fi
+
+  # Configure settings
+  echo ""
+  echo "${BOLD}Configuring repo settings...${RESET}"
+  configure_repo_settings
+
+  # Create rulesets
+  echo ""
+  echo "${BOLD}Setting up branch protection...${RESET}"
+  setup_rulesets
+
+  # Generate CI workflows
+  if [[ "$skip_ci" != true ]]; then
+    echo ""
+    echo "${BOLD}Generating CI/CD workflows...${RESET}"
+    setup_repo false "$preset"
+
+    # Push workflow files
+    if [[ -f ".github/workflows/ci.yml" ]]; then
+      git add .github/workflows/
+      git commit -m "Add CI/CD workflows"
+      git push origin main
+    fi
+  fi
+
+  echo ""
+  echo "${BOLD}${GREEN}Repository initialized successfully!${RESET}"
+  local repo_slug
+  repo_slug=$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || echo "")
+  if [[ -n "$repo_slug" ]]; then
+    echo "  https://github.com/$repo_slug"
+  fi
+}
+
 # --- Main argument parsing ---
 
 if [[ $# -eq 0 ]]; then
@@ -899,6 +1022,23 @@ COMMAND="$1"
 shift
 
 case "$COMMAND" in
+  init)
+    DRY_RUN=false
+    PRESET=""
+    VISIBILITY="public"
+    SKIP_CI=false
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --dry-run) DRY_RUN=true; shift ;;
+        --private) VISIBILITY="private"; shift ;;
+        --preset) PRESET="$2"; shift 2 ;;
+        --skip-ci) SKIP_CI=true; shift ;;
+        --help) usage_init; exit 0 ;;
+        *) die "Unknown option for init: $1" ;;
+      esac
+    done
+    init_repo "$DRY_RUN" "$PRESET" "$VISIBILITY" "$SKIP_CI"
+    ;;
   audit)
     JSON_OUTPUT=false
     SCORECARD_OUTPUT=false
