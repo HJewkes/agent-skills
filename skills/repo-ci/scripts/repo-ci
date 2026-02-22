@@ -790,7 +790,7 @@ setup_repo() {
 
   if [[ "$stack" == "node" ]]; then
     local node_version pkg_manager test_framework
-    local _cov_lines _cov_functions _cov_branches build_output
+    local build_output
 
     node_version=$(prompt_or_default "Node version" "22")
     pkg_manager=$(detect_pkg_manager)
@@ -806,11 +806,6 @@ setup_repo() {
     build_output=$(prompt_or_default "Build output path" "dist/cli.js")
 
     local publish_cmd="npm publish --provenance --access public"
-
-    # TODO: wire coverage thresholds into CI template expansion
-    _cov_lines=$(prompt_or_default "Coverage threshold: lines" "40")
-    _cov_functions=$(prompt_or_default "Coverage threshold: functions" "80")
-    _cov_branches=$(prompt_or_default "Coverage threshold: branches" "75")
 
     local enable_rulesets
     enable_rulesets=$(prompt_or_default "Create branch rulesets" "yes")
