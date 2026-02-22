@@ -730,9 +730,12 @@ setup_repo() {
       created_files+=(".github/workflows/release.yml")
     fi
 
-    # Branch rulesets
-    if [[ "$enable_rulesets" == "yes" ]] && [[ "$dry_run" != true ]]; then
-      setup_rulesets
+    # Repo settings and branch rulesets
+    if [[ "$dry_run" != true ]]; then
+      configure_repo_settings
+      if [[ "$enable_rulesets" == "yes" ]]; then
+        setup_rulesets
+      fi
     fi
 
   elif [[ "$stack" == "python" ]]; then
@@ -766,9 +769,12 @@ setup_repo() {
       created_files+=(".github/workflows/release.yml")
     fi
 
-    # Branch rulesets
-    if [[ "$enable_rulesets" == "yes" ]] && [[ "$dry_run" != true ]]; then
-      setup_rulesets
+    # Repo settings and branch rulesets
+    if [[ "$dry_run" != true ]]; then
+      configure_repo_settings
+      if [[ "$enable_rulesets" == "yes" ]]; then
+        setup_rulesets
+      fi
     fi
   fi
 
@@ -779,6 +785,41 @@ setup_repo() {
       echo "  - $f"
     done
     check_npm_scripts "$stack" || true
+  fi
+}
+
+configure_repo_settings() {
+  if ! command -v gh &>/dev/null || ! gh auth status &>/dev/null 2>&1; then
+    echo "${YELLOW}gh CLI not authenticated; skipping repo settings.${RESET}" >&2
+    return 0
+  fi
+
+  local repo_slug
+  repo_slug=$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || echo "")
+  if [[ -z "$repo_slug" ]]; then
+    echo "${YELLOW}Not in a GitHub repository; skipping repo settings.${RESET}" >&2
+    return 0
+  fi
+
+  local settings_payload
+  settings_payload=$(cat <<'ENDJSON'
+{
+  "allow_squash_merge": true,
+  "allow_merge_commit": false,
+  "allow_rebase_merge": true,
+  "delete_branch_on_merge": true,
+  "has_wiki": true,
+  "has_discussions": true,
+  "squash_merge_commit_title": "COMMIT_OR_PR_TITLE",
+  "squash_merge_commit_message": "COMMIT_MESSAGES"
+}
+ENDJSON
+)
+
+  if gh api "repos/$repo_slug" --method PATCH --input - <<< "$settings_payload" &>/dev/null; then
+    echo "  ${GREEN}Configured repo settings (squash+rebase, delete branch on merge, wiki, discussions)${RESET}"
+  else
+    echo "  ${YELLOW}Failed to configure repo settings${RESET}" >&2
   fi
 }
 
@@ -795,6 +836,13 @@ setup_rulesets() {
     return 0
   fi
 
+  local is_private
+  is_private=$(gh repo view --json isPrivate -q '.isPrivate' 2>/dev/null || echo "false")
+  if [[ "$is_private" == "true" ]]; then
+    echo "${YELLOW}Private repo detected — rulesets require GitHub Pro/Team. Skipping.${RESET}" >&2
+    return 0
+  fi
+
   local default_branch
   default_branch=$(gh repo view --json defaultBranchRef -q '.defaultBranchRef.name' 2>/dev/null || echo "main")
 
@@ -804,6 +852,9 @@ setup_rulesets() {
   "name": "Protect $default_branch",
   "target": "branch",
   "enforcement": "active",
+  "bypass_actors": [
+    {"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always"}
+  ],
   "conditions": {
     "ref_name": {
       "include": ["refs/heads/$default_branch"],
@@ -811,7 +862,19 @@ setup_rulesets() {
     }
   },
   "rules": [
-    {"type": "pull_request", "parameters": {"required_approving_review_count": 1, "dismiss_stale_reviews_on_push": true, "require_last_push_approval": false}},
+    {
+      "type": "pull_request",
+      "parameters": {
+        "allowed_merge_methods": ["squash", "rebase"],
+        "dismiss_stale_reviews_on_push": false,
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_approving_review_count": 1,
+        "required_review_thread_resolution": false,
+        "required_reviewers": []
+      }
+    },
+    {"type": "deletion"},
     {"type": "non_fast_forward"}
   ]
 }
@@ -821,7 +884,7 @@ ENDJSON
   if gh api "repos/$repo_slug/rulesets" --method POST --input - <<< "$ruleset_payload" &>/dev/null; then
     echo "  ${GREEN}Created branch ruleset for $default_branch${RESET}"
   else
-    echo "  ${YELLOW}Failed to create branch ruleset (may require admin permissions)${RESET}" >&2
+    echo "  ${YELLOW}Failed to create branch ruleset (may require admin permissions or GitHub Pro for private repos)${RESET}" >&2
   fi
 }
 
