@@ -95,3 +95,36 @@ Trigger: `push: tags: v*`
 | Node version matrix | Use `strategy.matrix.node-version: [20, 22]` for libraries; pin single version for CLIs/apps |
 | Prerelease detection | `contains(github.ref, '-alpha') \|\| contains(github.ref, '-beta') \|\| contains(github.ref, '-rc')` |
 | OIDC npm publish | Requires `permissions: id-token: write` at job level; use `--provenance` flag |
+
+---
+
+## Repo Settings Standards
+
+Applied by `repo-ci init`, checked by `repo-ci audit`.
+
+| Setting | Value | Rationale |
+|---------|-------|-----------|
+| `allow_squash_merge` | `true` | Clean history |
+| `allow_merge_commit` | `false` | Avoid noisy merge commits |
+| `allow_rebase_merge` | `true` | Useful for linear history |
+| `delete_branch_on_merge` | `true` | Auto-cleanup feature branches |
+| `has_wiki` | `true` | Available if needed |
+| `has_discussions` | `true` | Available if needed |
+| `squash_merge_commit_title` | `COMMIT_OR_PR_TITLE` | Uses PR title for squash commits |
+| `squash_merge_commit_message` | `COMMIT_MESSAGES` | Preserves individual commit messages |
+
+---
+
+## Ruleset Standards
+
+Applied by `repo-ci init` and `repo-ci setup`, checked by `repo-ci audit`.
+
+| Property | Value | Notes |
+|----------|-------|-------|
+| `bypass_actors` | RepositoryRole 5 (admin), bypass_mode: always | Owner/admin can self-merge |
+| `required_approving_review_count` | 1 | Outside contributors need approval |
+| Rules | pull_request, deletion, non_fast_forward | 3 rule types required |
+| `enforcement` | active | Always enforced |
+| Target | default branch (detected dynamically) | Usually `main` |
+
+Private repos: Rulesets require GitHub Pro/Team. `init` skips with a warning; `audit` reports WARN instead of FAIL.
