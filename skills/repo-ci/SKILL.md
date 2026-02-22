@@ -15,7 +15,7 @@ Set up and audit CI/CD workflows using the `repo-ci` CLI against the standards d
 
 Load and follow [references/audit-existing.md](references/audit-existing.md).
 
-Run `repo-ci audit --json` to score the repo across 6 areas, present a scorecard, explain gaps, and offer to fix them.
+Run `repo-ci audit --json` to score the repo across 7 areas, present a scorecard, explain gaps, and offer to fix them.
 
 ### Setup Mode
 
@@ -25,10 +25,22 @@ Load and follow [references/setup-new.md](references/setup-new.md).
 
 Run `repo-ci setup --dry-run` first, review with the user, then generate the files and walk through the post-setup checklist.
 
+### Init Mode
+
+**Triggers:** "create repo", "new repo", "init repo", "set up new project"
+
+Load and follow [references/setup-new.md](references/setup-new.md) (init section).
+
+Run `repo-ci init --dry-run` first, review with the user, then execute.
+
 ## CLI Reference
 
 | Command | Description |
 |---------|-------------|
+| `repo-ci init` | Create GitHub repo and fully configure it |
+| `repo-ci init --dry-run` | Preview what init would do |
+| `repo-ci init --private` | Create as private repo |
+| `repo-ci init --skip-ci` | Create repo without CI workflows |
 | `repo-ci audit` | Audit CI health (exit 0 = pass, 2 = gaps found) |
 | `repo-ci audit --json` | Structured JSON output for parsing |
 | `repo-ci setup` | Generate workflow files from templates |
@@ -40,8 +52,8 @@ Run `repo-ci setup --dry-run` first, review with the user, then generate the fil
 
 | Stack | Support level |
 |-------|---------------|
-| Node/TypeScript | Full — CI + release + coverage + rulesets |
-| Python | Basic — CI + release |
+| Node/TypeScript | Full — init + CI + release + coverage + rulesets |
+| Python | Basic — init + CI + release |
 
 **Unsupported stack?** If `repo-ci setup` outputs an unsupported-stack message (exit 2), follow the exit door handling in [references/setup-new.md](references/setup-new.md) to scaffold manually and extend the skill.
 

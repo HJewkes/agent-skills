@@ -14,7 +14,7 @@ For machine-readable output, use `--json` instead. Exit code 0 = all checks pass
 
 ## Step 2: Interpret Results
 
-The scorecard shows 6 areas with PASS, WARN, or FAIL status. The areas checked are: CI workflow, Release workflow, Formatter, Coverage, Branch protection, Security scanning.
+The scorecard shows 7 areas with PASS, WARN, or FAIL status. The areas checked are: CI workflow, Release workflow, Formatter, Coverage, Branch protection, Repo settings, Security scanning.
 
 ## Step 3: Detail Gaps
 
@@ -32,7 +32,8 @@ Reference guide for common gaps:
 | Release workflow | Missing version-verify step or provenance flag | Node/TypeScript Release Pipeline |
 | Formatter | No Prettier config or missing `format:check` script | Node/TypeScript CI Jobs |
 | Coverage | No thresholds set in vitest.config.ts | Coverage Thresholds |
-| Branch protection | Rulesets not configured | Universal Standards |
+| Branch protection | Rulesets missing rules or bypass actors | Ruleset Standards |
+| Repo settings | Merge commits allowed, delete-branch disabled, wiki/discussions off | Repo Settings Standards |
 | Security scanning | gitleaks not in CI | Universal Standards |
 
 ## Step 4: Handle Custom CI
