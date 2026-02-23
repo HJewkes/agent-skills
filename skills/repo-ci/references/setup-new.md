@@ -2,6 +2,21 @@
 
 Agent guide for `repo-ci` setup mode. Always preview before generating.
 
+## Full Repo Init (New Projects)
+
+For brand-new projects that need a GitHub repo created, use `repo-ci init` instead of `setup`:
+
+```bash
+repo-ci init --dry-run    # Preview what will happen
+repo-ci init              # Create repo, configure settings, generate CI, push
+```
+
+This handles: repo creation, repo settings, branch rulesets, CI/release workflows, initial push.
+
+Skip to [Step 4: Post-Setup Checklist](#step-4-post-setup-checklist) after init completes — steps 1-3 are handled automatically.
+
+---
+
 ## Step 1: Preview First
 
 In the target repo directory, always run with `--dry-run` before writing any files:
@@ -70,7 +85,7 @@ Open the Actions tab in GitHub and confirm the CI workflow runs without errors o
 
 ### 4c. Confirm Branch Rulesets
 
-Branch protection rulesets cannot be configured by the script — they must be set up in GitHub UI. Verify they are active:
+Branch rulesets are created automatically by `repo-ci init` and `repo-ci setup`. Verify they are active:
 
 ```bash
 gh api repos/{owner}/{repo}/rulesets

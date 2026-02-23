@@ -25,6 +25,7 @@ usage() {
 Usage: repo-ci <command> [options]
 
 Commands:
+  init     Create a GitHub repo and fully configure it
   audit    Audit repository CI health against standards
   verify   Compare current audit against a baseline
   setup    Generate CI/CD workflow files from templates
@@ -47,12 +48,13 @@ Usage: repo-ci audit [options]
 
 Audit repository CI health against standards.
 
-Checks 6 areas:
+Checks 7 areas:
   - CI workflow existence and jobs
   - Release workflow existence and jobs
   - Formatter configuration
   - Coverage configuration
   - Branch protection rulesets
+  - Repo settings
   - Security scanning
 
 Options:
@@ -92,6 +94,25 @@ Options:
   --dry-run          Print generated files to stdout without writing
   --preset <stack>   Stack preset: node or python (default: auto-detect)
   --help             Show this help message
+EOF
+}
+
+usage_init() {
+  cat <<'EOF'
+Usage: repo-ci init [options]
+
+Create a GitHub repository and fully configure it.
+
+Creates the repo, configures settings (merge strategy, branch deletion,
+wiki, discussions), sets up branch rulesets, generates CI/CD workflows,
+and pushes the initial content.
+
+Options:
+  --private        Create as private repo (default: public)
+  --preset <stack> Stack preset: node or python (default: auto-detect)
+  --dry-run        Show what would happen without executing
+  --skip-ci        Skip CI workflow generation
+  --help           Show this help message
 EOF
 }
 
@@ -347,23 +368,62 @@ audit_repo() {
     local repo_slug
     repo_slug=$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || echo "")
     if [[ -n "$repo_slug" ]]; then
+      local is_private
+      is_private=$(gh repo view --json isPrivate -q '.isPrivate' 2>/dev/null || echo "false")
       local rulesets
       rulesets=$(gh api "repos/$repo_slug/rulesets" 2>/dev/null || echo "[]")
       local ruleset_count
       ruleset_count=$(echo "$rulesets" | grep -c '"id"' 2>/dev/null || true)
       ruleset_count="${ruleset_count:-0}"
       ruleset_count="${ruleset_count//[^0-9]/}"
-      if [[ "$ruleset_count" -gt 0 ]]; then
-        areas+=("Branch protection")
-        statuses+=("pass")
-        details+=("$ruleset_count ruleset(s) found")
-        recommendations+=("")
+
+      if [[ "$ruleset_count" -eq 0 ]]; then
+        if [[ "$is_private" == "true" ]]; then
+          areas+=("Branch protection")
+          statuses+=("warn")
+          details+=("No rulesets (private repo — requires GitHub Pro/Team)")
+          recommendations+=("Upgrade plan or make repo public, then run 'repo-ci init'")
+          has_warnings=true
+        else
+          areas+=("Branch protection")
+          statuses+=("fail")
+          details+=("No branch rulesets configured")
+          recommendations+=("Run 'repo-ci init' or 'repo-ci setup' with rulesets enabled")
+          has_warnings=true
+        fi
       else
-        areas+=("Branch protection")
-        statuses+=("fail")
-        details+=("No branch rulesets configured")
-        recommendations+=("Run 'repo-ci setup' with rulesets enabled")
-        has_warnings=true
+        # Validate first ruleset content
+        local first_id
+        first_id=$(echo "$rulesets" | grep -o '"id":[0-9]*' | head -1 | grep -o '[0-9]*')
+        local ruleset_detail
+        ruleset_detail=$(gh api "repos/$repo_slug/rulesets/$first_id" 2>/dev/null || echo "{}")
+
+        local bp_issues=""
+        if ! echo "$ruleset_detail" | grep -q '"type":"pull_request"' 2>/dev/null; then
+          bp_issues="${bp_issues:+$bp_issues; }missing pull_request rule"
+        fi
+        if ! echo "$ruleset_detail" | grep -q '"type":"deletion"' 2>/dev/null; then
+          bp_issues="${bp_issues:+$bp_issues; }missing deletion rule"
+        fi
+        if ! echo "$ruleset_detail" | grep -q '"type":"non_fast_forward"' 2>/dev/null; then
+          bp_issues="${bp_issues:+$bp_issues; }missing non_fast_forward rule"
+        fi
+        if ! echo "$ruleset_detail" | grep -q '"bypass_actors":\[' 2>/dev/null || echo "$ruleset_detail" | grep -q '"bypass_actors":\[\]' 2>/dev/null; then
+          bp_issues="${bp_issues:+$bp_issues; }no bypass actors configured"
+        fi
+
+        if [[ -z "$bp_issues" ]]; then
+          areas+=("Branch protection")
+          statuses+=("pass")
+          details+=("$ruleset_count ruleset(s) with correct rules and bypass actors")
+          recommendations+=("")
+        else
+          areas+=("Branch protection")
+          statuses+=("warn")
+          details+=("$ruleset_count ruleset(s) but: $bp_issues")
+          recommendations+=("Update ruleset to include all standard rules and bypass actors")
+          has_warnings=true
+        fi
       fi
     else
       areas+=("Branch protection")
@@ -380,7 +440,65 @@ audit_repo() {
     has_warnings=true
   fi
 
-  # 6. Security scanning
+  # 6. Repo settings
+  if [[ "$gh_authenticated" == true ]] && [[ -n "$repo_slug" ]]; then
+    local repo_json
+    repo_json=$(gh api "repos/$repo_slug" --jq '{
+      allow_squash_merge: .allow_squash_merge,
+      allow_merge_commit: .allow_merge_commit,
+      allow_rebase_merge: .allow_rebase_merge,
+      delete_branch_on_merge: .delete_branch_on_merge,
+      has_wiki: .has_wiki,
+      has_discussions: .has_discussions
+    }' 2>/dev/null || echo "{}")
+
+    local settings_issues=""
+    if echo "$repo_json" | grep -q '"allow_merge_commit": true' 2>/dev/null; then
+      settings_issues="${settings_issues:+$settings_issues; }merge commits allowed"
+    fi
+    if echo "$repo_json" | grep -q '"delete_branch_on_merge": false' 2>/dev/null; then
+      settings_issues="${settings_issues:+$settings_issues; }delete-branch-on-merge disabled"
+    fi
+    if echo "$repo_json" | grep -q '"has_wiki": false' 2>/dev/null; then
+      settings_issues="${settings_issues:+$settings_issues; }wiki disabled"
+    fi
+    if echo "$repo_json" | grep -q '"has_discussions": false' 2>/dev/null; then
+      settings_issues="${settings_issues:+$settings_issues; }discussions disabled"
+    fi
+    if echo "$repo_json" | grep -q '"allow_squash_merge": false' 2>/dev/null; then
+      settings_issues="${settings_issues:+$settings_issues; }squash merge disabled"
+    fi
+    if echo "$repo_json" | grep -q '"allow_rebase_merge": false' 2>/dev/null; then
+      settings_issues="${settings_issues:+$settings_issues; }rebase merge disabled"
+    fi
+
+    if [[ -z "$settings_issues" ]]; then
+      areas+=("Repo settings")
+      statuses+=("pass")
+      details+=("All repo settings match standard")
+      recommendations+=("")
+    else
+      areas+=("Repo settings")
+      statuses+=("warn")
+      details+=("$settings_issues")
+      recommendations+=("Run 'repo-ci init' or configure manually via GitHub settings")
+      has_warnings=true
+    fi
+  elif [[ "$gh_authenticated" == true ]]; then
+    areas+=("Repo settings")
+    statuses+=("warn")
+    details+=("Not in a GitHub repository")
+    recommendations+=("Run from a cloned GitHub repository")
+    has_warnings=true
+  else
+    areas+=("Repo settings")
+    statuses+=("warn")
+    details+=("gh CLI not authenticated; skipping check")
+    recommendations+=("Run 'gh auth login' to enable this check")
+    has_warnings=true
+  fi
+
+  # 7. Security scanning
   if [[ -f ".github/workflows/ci.yml" ]]; then
     local ci_sec
     ci_sec=$(cat .github/workflows/ci.yml)
@@ -672,7 +790,7 @@ setup_repo() {
 
   if [[ "$stack" == "node" ]]; then
     local node_version pkg_manager test_framework
-    local _cov_lines _cov_functions _cov_branches build_output
+    local build_output
 
     node_version=$(prompt_or_default "Node version" "22")
     pkg_manager=$(detect_pkg_manager)
@@ -688,11 +806,6 @@ setup_repo() {
     build_output=$(prompt_or_default "Build output path" "dist/cli.js")
 
     local publish_cmd="npm publish --provenance --access public"
-
-    # TODO: wire coverage thresholds into CI template expansion
-    _cov_lines=$(prompt_or_default "Coverage threshold: lines" "40")
-    _cov_functions=$(prompt_or_default "Coverage threshold: functions" "80")
-    _cov_branches=$(prompt_or_default "Coverage threshold: branches" "75")
 
     local enable_rulesets
     enable_rulesets=$(prompt_or_default "Create branch rulesets" "yes")
@@ -730,9 +843,12 @@ setup_repo() {
       created_files+=(".github/workflows/release.yml")
     fi
 
-    # Branch rulesets
-    if [[ "$enable_rulesets" == "yes" ]] && [[ "$dry_run" != true ]]; then
-      setup_rulesets
+    # Repo settings and branch rulesets
+    if [[ "$dry_run" != true ]]; then
+      configure_repo_settings
+      if [[ "$enable_rulesets" == "yes" ]]; then
+        setup_rulesets
+      fi
     fi
 
   elif [[ "$stack" == "python" ]]; then
@@ -766,9 +882,12 @@ setup_repo() {
       created_files+=(".github/workflows/release.yml")
     fi
 
-    # Branch rulesets
-    if [[ "$enable_rulesets" == "yes" ]] && [[ "$dry_run" != true ]]; then
-      setup_rulesets
+    # Repo settings and branch rulesets
+    if [[ "$dry_run" != true ]]; then
+      configure_repo_settings
+      if [[ "$enable_rulesets" == "yes" ]]; then
+        setup_rulesets
+      fi
     fi
   fi
 
@@ -779,6 +898,41 @@ setup_repo() {
       echo "  - $f"
     done
     check_npm_scripts "$stack" || true
+  fi
+}
+
+configure_repo_settings() {
+  if ! command -v gh &>/dev/null || ! gh auth status &>/dev/null 2>&1; then
+    echo "${YELLOW}gh CLI not authenticated; skipping repo settings.${RESET}" >&2
+    return 0
+  fi
+
+  local repo_slug
+  repo_slug=$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || echo "")
+  if [[ -z "$repo_slug" ]]; then
+    echo "${YELLOW}Not in a GitHub repository; skipping repo settings.${RESET}" >&2
+    return 0
+  fi
+
+  local settings_payload
+  settings_payload=$(cat <<'ENDJSON'
+{
+  "allow_squash_merge": true,
+  "allow_merge_commit": false,
+  "allow_rebase_merge": true,
+  "delete_branch_on_merge": true,
+  "has_wiki": true,
+  "has_discussions": true,
+  "squash_merge_commit_title": "COMMIT_OR_PR_TITLE",
+  "squash_merge_commit_message": "COMMIT_MESSAGES"
+}
+ENDJSON
+)
+
+  if gh api "repos/$repo_slug" --method PATCH --input - <<< "$settings_payload" &>/dev/null; then
+    echo "  ${GREEN}Configured repo settings (squash+rebase, delete branch on merge, wiki, discussions)${RESET}"
+  else
+    echo "  ${YELLOW}Failed to configure repo settings${RESET}" >&2
   fi
 }
 
@@ -795,6 +949,13 @@ setup_rulesets() {
     return 0
   fi
 
+  local is_private
+  is_private=$(gh repo view --json isPrivate -q '.isPrivate' 2>/dev/null || echo "false")
+  if [[ "$is_private" == "true" ]]; then
+    echo "${YELLOW}Private repo detected — rulesets require GitHub Pro/Team. Skipping.${RESET}" >&2
+    return 0
+  fi
+
   local default_branch
   default_branch=$(gh repo view --json defaultBranchRef -q '.defaultBranchRef.name' 2>/dev/null || echo "main")
 
@@ -804,6 +965,9 @@ setup_rulesets() {
   "name": "Protect $default_branch",
   "target": "branch",
   "enforcement": "active",
+  "bypass_actors": [
+    {"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always"}
+  ],
   "conditions": {
     "ref_name": {
       "include": ["refs/heads/$default_branch"],
@@ -811,7 +975,19 @@ setup_rulesets() {
     }
   },
   "rules": [
-    {"type": "pull_request", "parameters": {"required_approving_review_count": 1, "dismiss_stale_reviews_on_push": true, "require_last_push_approval": false}},
+    {
+      "type": "pull_request",
+      "parameters": {
+        "allowed_merge_methods": ["squash", "rebase"],
+        "dismiss_stale_reviews_on_push": false,
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_approving_review_count": 1,
+        "required_review_thread_resolution": false,
+        "required_reviewers": []
+      }
+    },
+    {"type": "deletion"},
     {"type": "non_fast_forward"}
   ]
 }
@@ -821,7 +997,110 @@ ENDJSON
   if gh api "repos/$repo_slug/rulesets" --method POST --input - <<< "$ruleset_payload" &>/dev/null; then
     echo "  ${GREEN}Created branch ruleset for $default_branch${RESET}"
   else
-    echo "  ${YELLOW}Failed to create branch ruleset (may require admin permissions)${RESET}" >&2
+    echo "  ${YELLOW}Failed to create branch ruleset (may require admin permissions or GitHub Pro for private repos)${RESET}" >&2
+  fi
+}
+
+# --- Init ---
+
+init_repo() {
+  local dry_run="$1"
+  local preset="$2"
+  local visibility="$3"
+  local skip_ci="$4"
+
+  local stack
+  if [[ -n "$preset" ]]; then
+    stack="$preset"
+  else
+    stack=$(detect_stack)
+  fi
+
+  # Verify we have a git repo locally
+  if ! git rev-parse --is-inside-work-tree &>/dev/null; then
+    die "Not inside a git repository. Run 'git init' first."
+  fi
+
+  # Check for at least one commit
+  if ! git rev-parse HEAD &>/dev/null 2>&1; then
+    die "No commits yet. Make an initial commit first."
+  fi
+
+  local repo_name
+  repo_name=$(basename "$(git rev-parse --show-toplevel)")
+
+  if [[ "$dry_run" == true ]]; then
+    echo "${BOLD}repo-ci init (dry run)${RESET}"
+    echo ""
+    echo "Would create GitHub repo: $repo_name ($visibility)"
+    echo "Would configure repo settings:"
+    echo "  - allow_squash_merge: true"
+    echo "  - allow_merge_commit: false"
+    echo "  - allow_rebase_merge: true"
+    echo "  - delete_branch_on_merge: true"
+    echo "  - has_wiki: true"
+    echo "  - has_discussions: true"
+    echo "Would create branch ruleset (protect default branch)"
+    if [[ "$visibility" == "private" ]]; then
+      echo "  ${YELLOW}Note: Rulesets require GitHub Pro/Team for private repos${RESET}"
+    fi
+    if [[ "$skip_ci" != true ]]; then
+      echo "Would generate CI/CD workflows (stack: $stack)"
+      echo ""
+      setup_repo true "$preset"
+    else
+      echo "Skipping CI workflow generation (--skip-ci)"
+    fi
+    return 0
+  fi
+
+  # Create the GitHub repo
+  echo "${BOLD}Creating GitHub repository...${RESET}"
+  local gh_create_args=(gh repo create "$repo_name" "--$visibility" --source . --push)
+  if ! "${gh_create_args[@]}"; then
+    die "Failed to create GitHub repository"
+  fi
+
+  # Ensure default branch is main
+  local default_branch
+  default_branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "main")
+  if [[ "$default_branch" != "main" ]]; then
+    echo "Renaming default branch from $default_branch to main..."
+    git branch -m "$default_branch" main
+    git push origin main
+    gh repo edit --default-branch main
+  fi
+
+  # Configure settings
+  echo ""
+  echo "${BOLD}Configuring repo settings...${RESET}"
+  configure_repo_settings
+
+  # Create rulesets
+  echo ""
+  echo "${BOLD}Setting up branch protection...${RESET}"
+  setup_rulesets
+
+  # Generate CI workflows
+  if [[ "$skip_ci" != true ]]; then
+    echo ""
+    echo "${BOLD}Generating CI/CD workflows...${RESET}"
+    setup_repo false "$preset"
+
+    # Push workflow files
+    if [[ -f ".github/workflows/ci.yml" ]]; then
+      git add .github/workflows/
+      git commit -m "Add CI/CD workflows"
+      git push origin main
+    fi
+  fi
+
+  echo ""
+  echo "${BOLD}${GREEN}Repository initialized successfully!${RESET}"
+  local repo_slug
+  repo_slug=$(gh repo view --json nameWithOwner -q '.nameWithOwner' 2>/dev/null || echo "")
+  if [[ -n "$repo_slug" ]]; then
+    echo "  https://github.com/$repo_slug"
   fi
 }
 
@@ -836,6 +1115,23 @@ COMMAND="$1"
 shift
 
 case "$COMMAND" in
+  init)
+    DRY_RUN=false
+    PRESET=""
+    VISIBILITY="public"
+    SKIP_CI=false
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --dry-run) DRY_RUN=true; shift ;;
+        --private) VISIBILITY="private"; shift ;;
+        --preset) PRESET="$2"; shift 2 ;;
+        --skip-ci) SKIP_CI=true; shift ;;
+        --help) usage_init; exit 0 ;;
+        *) die "Unknown option for init: $1" ;;
+      esac
+    done
+    init_repo "$DRY_RUN" "$PRESET" "$VISIBILITY" "$SKIP_CI"
+    ;;
   audit)
     JSON_OUTPUT=false
     SCORECARD_OUTPUT=false
