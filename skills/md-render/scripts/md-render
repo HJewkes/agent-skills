@@ -86,17 +86,67 @@ else
   RESOLVED_CONFIG="$GLOBAL_CONFIG"
 fi
 
+# Resolve source directory for relative link resolution
+if [[ "$INPUT_FILE" != "-" ]]; then
+  SOURCE_DIR="$(cd "$(dirname "$INPUT_FILE")" && pwd)"
+else
+  SOURCE_DIR=""
+fi
+
 # Render
 HTML=$(echo "$MARKDOWN" | node "$RENDERER" "$RESOLVED_CONFIG")
 
-# Write output
+# Determine output directory
+USER_OUTPUT=false
 if [[ -n "$OUTPUT_FILE" ]]; then
-  echo "$HTML" > "$OUTPUT_FILE"
-  echo "Written to $OUTPUT_FILE" >&2
+  USER_OUTPUT=true
+  OUTPUT_DIR="$(cd "$(dirname "$OUTPUT_FILE")" && pwd)"
 else
-  TMPFILE="/tmp/md-render-$$.html"
-  echo "$HTML" > "$TMPFILE"
-  OUTPUT_FILE="$TMPFILE"
+  OUTPUT_DIR="/tmp/md-render-$$"
+  mkdir -p "$OUTPUT_DIR"
+  OUTPUT_FILE="$OUTPUT_DIR/index.html"
+fi
+
+# Render linked markdown files and rewrite links
+if [[ -n "$SOURCE_DIR" ]]; then
+  RENDERED_LIST=""
+  MD_LINKS=$(echo "$HTML" | grep -oE 'href="[^"]*\.md(#[^"]*)?"' | sed 's/href="//;s/"$//' || true)
+
+  for link in $MD_LINKS; do
+    fragment=""
+    md_path="$link"
+    if [[ "$link" == *"#"* ]]; then
+      fragment="#${link#*#}"
+      md_path="${link%%#*}"
+    fi
+
+    # Skip absolute URLs and anchors-only
+    [[ "$md_path" == http://* || "$md_path" == https://* || -z "$md_path" ]] && continue
+
+    abs_path="$SOURCE_DIR/$md_path"
+    if [[ -f "$abs_path" ]]; then
+      html_name="${md_path%.md}.html"
+      linked_output="$OUTPUT_DIR/$html_name"
+
+      # Only render each file once
+      if [[ "$RENDERED_LIST" != *"|${md_path}|"* ]]; then
+        mkdir -p "$(dirname "$linked_output")"
+        LINKED_HTML=$(cat "$abs_path" | node "$RENDERER" "$RESOLVED_CONFIG")
+        echo "$LINKED_HTML" > "$linked_output"
+        RENDERED_LIST="${RENDERED_LIST}|${md_path}|"
+      fi
+
+      # Rewrite the link in the main HTML
+      escaped_link=$(printf '%s' "$link" | sed 's/[.[\/*^$()+?{|]/\\&/g')
+      HTML=$(echo "$HTML" | sed "s|href=\"${escaped_link}\"|href=\"${html_name}${fragment}\"|g")
+    fi
+  done
+fi
+
+# Write output
+echo "$HTML" > "$OUTPUT_FILE"
+if [[ "$USER_OUTPUT" == true ]]; then
+  echo "Written to $OUTPUT_FILE" >&2
 fi
 
 # Open in browser
