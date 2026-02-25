@@ -42,10 +42,9 @@ EOF
 die() { echo "Error: $1" >&2; exit 1; }
 
 # Auto-install npm dependencies if missing
-REPO_ROOT="$(cd "$SKILL_DIR/../.." && pwd)"
-if [[ ! -d "$REPO_ROOT/node_modules/markdown-it" ]]; then
+if [[ ! -d "$SKILL_DIR/node_modules/markdown-it" ]]; then
   echo "Installing dependencies..." >&2
-  npm install --prefix "$REPO_ROOT" --silent >&2 || die "Failed to install dependencies. Run 'npm install' from $REPO_ROOT"
+  npm install --prefix "$SKILL_DIR" --silent >&2 || die "Failed to install dependencies. Run 'npm install' from $SKILL_DIR"
 fi
 
 # Parse args
